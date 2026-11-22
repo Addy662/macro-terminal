@@ -111,7 +111,7 @@ function yieldsCard(d){
   return h+`</div>`;
 }
 function releasesCard(d){
-  const rl=d.releases||{},c=rl.us_cpi,j=rl.us_jobs,ic=rl.india_cpi;
+  const rl=d.releases||{},c=rl.us_cpi,j=rl.us_jobs,p=rl.us_pce,g=rl.us_gdp,ic=rl.india_cpi;
   let h=`<div class="card"><h2>US releases</h2>`;
   h+=c?`<div class="row${c.stale?" stale":""}"><span>US CPI YoY (${c.period})</span><span class="v">${nf(c.last,1)}%</span></div>
     <div class="row"><span>Core CPI YoY</span><span class="v">${nf(c.core_yoy,1)}%</span></div>
@@ -121,6 +121,11 @@ function releasesCard(d){
     <div class="row"><span>Unemployment rate</span><span class="v">${nf(j.unemployment,1)}% <span class="mu">prev ${nf(j.unemployment_prev,1)}%</span></span></div>
     <div class="row"><span>Avg hourly earnings YoY</span><span class="v">${nf(j.avg_hourly_earn_yoy,1)}%</span></div>`:
     `<div class="row"><span class="mu">US jobs report</span><span class="v mu">n/a</span></div>`;
+  h+=p?`<div class="row${p.stale?" stale":""}"><span>US PCE YoY (${p.period})</span><span class="v">${nf(p.last,1)}%</span></div>
+    <div class="row"><span>Core PCE YoY</span><span class="v">${nf(p.core_yoy,1)}%</span></div>`:
+    `<div class="row"><span class="mu">US PCE</span><span class="v mu">n/a</span></div>`;
+  h+=g?`<div class="row${g.stale?" stale":""}"><span>US GDP growth, annualized (${g.period})</span><span class="v">${sg(g.last)}${nf(g.last,1)}%</span></div>`:
+    `<div class="row"><span class="mu">US GDP</span><span class="v mu">n/a</span></div>`;
   h+=ic&&ic.actual!=null?`<div class="row"><span>India CPI (${ic.as_of||""})</span><span class="v">${nf(ic.actual,1)}% <span class="mu">prev ${nf(ic.previous,1)}%</span></span></div>`:
     `<div class="row"><span class="mu">India CPI</span><span class="v mu">add in manual.json</span></div>`;
   return h+`</div>`;

@@ -28,6 +28,8 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python fetch_data.py
+        env:
+          BEA_API_KEY: ${{ secrets.BEA_API_KEY }}
       - name: Save data.json back to the repo
         run: |
           git config user.name "macro-bot"

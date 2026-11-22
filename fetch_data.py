@@ -13,6 +13,7 @@ import datetime as dt
 import io
 import json
 import math
+import os
 import pathlib
 import random
 import sys
@@ -217,6 +218,64 @@ def jobs_metrics():
             "unemployment": une[-1][1], "unemployment_prev": une[-2][1],
             "avg_hourly_earn_yoy": pct_change(ahe, 12),
             "period": pay_series[-1][0], "series": pay_series[-45:], "stale": False}
+
+
+# ---------- BEA API (free key, needs signup + email activation - see manual.json) ----------
+BEA_KEY = os.environ.get("BEA_API_KEY")
+
+
+def bea_fetch(table, freq, tries=3):
+    """BEA's own backend is flaky right after a key is activated - an active key still
+    intermittently reports "not active", so retry a few times before giving up."""
+    years = ",".join(str(y) for y in range(NOW.year - 6, NOW.year + 1))
+    last = None
+    for i in range(tries):
+        r = requests.get("https://apps.bea.gov/api/data/",
+                         params={"UserID": BEA_KEY, "method": "GetData", "datasetname": "NIPA",
+                                 "TableName": table, "Frequency": freq, "Year": years, "ResultFormat": "JSON"},
+                         timeout=25)
+        r.raise_for_status()
+        res = r.json().get("BEAAPI", {}).get("Results", {})
+        if "Data" in res:
+            return res["Data"]
+        last = ValueError(res.get("Error", {}).get("APIErrorDescription") or "BEA request failed")
+        if i < tries - 1:
+            time.sleep(3)
+    raise last
+
+
+def bea_date(period):
+    if "M" in period:
+        y, m = period.split("M")
+        return f"{y}-{int(m):02d}-01"
+    y, q = period.split("Q")
+    return f"{y}-{(int(q) - 1) * 3 + 1:02d}-01"
+
+
+def bea_line(data, line):
+    pts = sorted([bea_date(r["TimePeriod"]), float(r["DataValue"].replace(",", ""))]
+                for r in data if r["LineNumber"] == line)
+    return pts
+
+
+def pce_metrics():
+    if not BEA_KEY:
+        raise ValueError("BEA_API_KEY not set")
+    data = bea_fetch("T20804", "M")
+    headline, core = bea_line(data, "1"), bea_line(data, "25")
+    yoy_series = [[headline[i][0], round((headline[i][1] / headline[i - 12][1] - 1) * 100, 3)]
+                 for i in range(12, len(headline))]
+    return {"label": "US PCE YoY", "last": yoy_series[-1][1], "prev": yoy_series[-2][1],
+            "mom": pct_change(headline, 1), "core_yoy": pct_change(core, 12), "core_mom": pct_change(core, 1),
+            "period": yoy_series[-1][0], "series": yoy_series[-45:], "stale": False}
+
+
+def gdp_metrics():
+    if not BEA_KEY:
+        raise ValueError("BEA_API_KEY not set")
+    pts = bea_line(bea_fetch("T10101", "Q"), "1")
+    return {"label": "US GDP growth (annualized QoQ)", "last": pts[-1][1], "prev": pts[-2][1],
+            "period": pts[-1][0], "series": pts[-45:], "stale": False}
 
 
 # ---------- NSE (best effort, often blocked from cloud IPs) ----------
@@ -577,12 +636,18 @@ def main():
                                "core_mom": 0.2, "period": "demo", "series": [["2026-01-01", 3.0]], "stale": False},
                    "us_jobs": {"label": "US payrolls added (000s)", "last": 120, "prev": 110, "unemployment": 4.1,
                                "unemployment_prev": 4.2, "avg_hourly_earn_yoy": 3.9, "period": "demo",
-                               "series": [["2026-01-01", 120]], "stale": False}}
-        for k in ("bls:cpi", "bls:jobs"):
+                               "series": [["2026-01-01", 120]], "stale": False},
+                   "us_pce": {"label": "US PCE YoY", "last": 2.8, "prev": 2.7, "mom": 0.2, "core_yoy": 2.9,
+                              "core_mom": 0.2, "period": "demo", "series": [["2026-01-01", 2.8]], "stale": False},
+                   "us_gdp": {"label": "US GDP growth (annualized QoQ)", "last": 2.5, "prev": 2.2,
+                              "period": "demo", "series": [["2026-01-01", 2.5]], "stale": False}}
+        for k in ("bls:cpi", "bls:jobs", "bea:pce", "bea:gdp"):
             STATUS[k] = {"ok": True}
     else:
         releases["us_cpi"] = guarded("bls:cpi", cpi_metrics, PREV.get("releases", {}).get("us_cpi"))
         releases["us_jobs"] = guarded("bls:jobs", jobs_metrics, PREV.get("releases", {}).get("us_jobs"))
+        releases["us_pce"] = guarded("bea:pce", pce_metrics, PREV.get("releases", {}).get("us_pce"))
+        releases["us_gdp"] = guarded("bea:gdp", gdp_metrics, PREV.get("releases", {}).get("us_gdp"))
         releases = {k: v for k, v in releases.items() if v}
     if MANUAL.get("india_cpi", {}).get("actual") is not None:
         releases["india_cpi"] = MANUAL["india_cpi"]
@@ -592,7 +657,8 @@ def main():
         snap = {k: market[k]["pct"] for k in ("gold", "nifty", "dxy", "usdinr") if k in market}
         if "us10y" in yields_:
             snap["us10y_chg"] = yields_["us10y"]["chg"]
-        for rid, label in (("us_cpi", "US CPI"), ("us_jobs", "US jobs report")):
+        for rid, label in (("us_cpi", "US CPI"), ("us_jobs", "US jobs report"),
+                          ("us_pce", "US PCE"), ("us_gdp", "US GDP")):
             hist = log_release(hist, rid, label, releases.get(rid), snap)
         HIST.write_text(json.dumps(hist, separators=(",", ":")))
 
