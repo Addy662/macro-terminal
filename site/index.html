@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Macro Terminal</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--tx:#14171c;--mu:#667085;--bd:#e3e6ec;--up:#0f7a55;--dn:#c2362b;--ac:#2f5bea;--wa:#b7791f;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--card:#171b22;--tx:#eceff4;--mu:#98a1b3;--bd:#2a303b;--up:#3ecf9a;--dn:#ff7a6e;--ac:#7c9cff;--wa:#e6b450;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1116;--card:#171b22;--tx:#eceff4;--mu:#98a1b3;--bd:#2a303b;--up:#3ecf9a;--dn:#ff7a6e;--ac:#7c9cff;--wa:#e6b450;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.w{max-width:1180px;margin:0 auto;padding:14px 16px 40px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+h1{font-size:18px;margin:0}.mu{color:var(--mu)}.sm{font-size:12px}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.banner{border:1px solid var(--wa);color:var(--wa);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px}
+.chip{flex:0 0 auto;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:7px 11px;min-width:112px}
+.chip b{display:block;font-size:11px;font-weight:500;color:var(--mu);white-space:nowrap}
+.chip span{font-weight:600}.chip i{font-style:normal;font-size:12px;margin-left:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.card h2{font-size:13px;margin:0 0 8px;color:var(--mu);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.big{font-size:26px;font-weight:650;letter-spacing:-.5px}.big small{font-size:12px;font-weight:400;color:var(--mu);margin-left:6px}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--bd);font-weight:600}
+.tag.Bullish{color:var(--up);border-color:var(--up)}.tag.Bearish{color:var(--dn);border-color:var(--dn)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--bd);font-size:13px}
+.row:first-of-type{border-top:0}
+.row .v{font-variant-numeric:tabular-nums;text-align:right}
+.stale{opacity:.55}.stale:after{content:" stale";font-size:10px;color:var(--wa)}
+.spark{display:block;width:100%;height:44px;margin:6px 0 8px}
+.drv{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.drv em{font-style:normal;font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:2px 6px}
+.bars{display:grid;gap:7px}
+.br{display:grid;grid-template-columns:70px 1fr 34px;gap:8px;align-items:center;font-size:13px}
+.bar{height:8px;background:var(--bd);border-radius:4px;position:relative}
+.bar i{position:absolute;top:0;height:8px;border-radius:4px}
+.bar:after{content:"";position:absolute;left:50%;top:-2px;height:12px;width:1px;background:var(--mu)}
+.st{display:flex;flex-wrap:wrap;gap:6px}.st span{font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:2px 7px}
+.st .bad{color:var(--dn);border-color:var(--dn)}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:4px 10px;cursor:pointer}
+</style></head><body><div class="w">
+<header><h1>Macro Terminal · Gold · Silver · Copper · Nifty</h1>
+<div class="mu sm"><span id="gen">loading…</span> <button id="rf">Refresh</button></div></header>
+<div id="banner"></div>
+<div class="strip" id="strip"></div>
+<div class="grid" id="grid"></div>
+<div class="card" style="margin-top:12px"><h2>Source health</h2><div class="st" id="st"></div>
+<p class="mu sm" id="notes" style="margin:10px 0 0"></p></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const nf=(n,d=2)=>n==null||isNaN(n)?"–":Number(n).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+const cls=n=>n>0?"up":n<0?"dn":"mu";
+const sg=n=>n>0?"+":"";
+function spark(s,color){
+  if(!s||s.length<2)return"";
+  const v=s.map(p=>p[1]),mn=Math.min(...v),mx=Math.max(...v),r=mx-mn||1;
+  const pts=v.map((x,i)=>`${(i/(v.length-1)*200).toFixed(1)},${(38-(x-mn)/r*34).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none"><polyline fill="none" stroke="var(${color})" stroke-width="1.6" vector-effect="non-scaling-stroke" points="${pts}"/></svg>`;
+}
+function chip(m){
+  if(!m)return"";
+  return `<div class="chip ${m.stale?"stale":""}"><b>${m.label}</b><span>${nf(m.last,m.last>1000?0:2)}</span><i class="${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</i></div>`;
+}
+function row(label,m,d=2,abs=false){
+  if(!m)return`<div class="row"><span class="mu">${label}</span><span class="v mu">n/a</span></div>`;
+  const ch=abs?`${sg(m.chg)}${nf(m.chg,2)}`:`${sg(m.pct)}${nf(m.pct)}%`;
+  return `<div class="row ${m.stale?"stale":""}"><span>${label}</span><span class="v">${nf(m.last,d)} <span class="${cls(m.chg)}">${ch}</span></span></div>`;
+}
+function tiltTag(t){return t?`<span class="tag ${t.label}">${t.label} ${sg(t.score)}${t.score}</span>`:""}
+function drivers(t){
+  if(!t||!t.drivers.length)return"";
+  return `<div class="drv">${t.drivers.map(d=>`<em class="${d.effect>0?"up":"dn"}">${d.driver} ${sg(d.effect)}${d.effect}</em>`).join("")}</div>`;
+}
+function hero(m,unit){
+  if(!m)return`<div class="big mu">n/a</div>`;
+  return `<div class="big ${m.stale?"stale":""}">${nf(m.last,0)}<small>${unit} · <span class="${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</span></small></div>${spark(m.series,m.pct>=0?"--up":"--dn")}`;
+}
+function metal(title,key,unit,d,rows){
+  const m=d.mcx[key];
+  return `<div class="card"><h2>${title} ${tiltTag(d.tilt[key])}</h2>${hero(m,unit)}${rows}${drivers(d.tilt[key])}</div>`;
+}
+function render(d){
+  const M=d.market,F=d.fred,N=d.nse||{};
+  $("gen").textContent="Updated "+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
+  const bad=Object.values(d.status).filter(s=>!s.ok).length;
+  $("banner").innerHTML=(d.demo?`<div class="banner">DEMO DATA – synthetic numbers, not real prices.</div>`:"")+
+    (bad?`<div class="banner">${bad} source(s) failed on the last run; those values are the previous ones, marked stale.</div>`:"");
+  $("strip").innerHTML=["nifty","banknifty","indiavix","es","gold","silver","copper","brent","dxy","usdinr","us10y"].map(k=>chip(M[k])).join("");
+
+  const gold=metal("MCX Gold – fair value","gold","₹/10g",d,
+    row("COMEX gold $/oz",M.gold,2)+row("USD/INR",M.usdinr,3)+row("DXY",M.dxy,2)+
+    row("US 10Y real yield %",F.real10y,2,true)+row("US 10Y %",M.us10y,2,true)+row("US VIX",M.usvix,2));
+  const silver=metal("MCX Silver – fair value","silver","₹/kg",d,
+    row("COMEX silver $/oz",M.silver,2)+row("Gold/Silver ratio",d.mcx.gs_ratio,1)+row("COMEX copper $/lb",M.copper,3)+
+    row("USD/INR",M.usdinr,3)+row("DXY",M.dxy,2));
+  const copper=metal("MCX Copper – fair value","copper","₹/kg",d,
+    row("COMEX copper $/lb",M.copper,3)+row("USD/CNY",M.usdcny,4)+row("Hang Seng",M.hangseng,0)+
+    row("DXY",M.dxy,2)+row("Brent $/bbl",M.brent,2));
+
+  const c=N.chain,fd=N.fii_dii,ff=N.fii_fut;
+  const st=x=>x&&x.stale?" stale":"";
+  let nifty=`<div class="card"><h2>Nifty futures ${tiltTag(d.tilt.nifty)}</h2>${hero(M.nifty,"spot")}`+
+    row("India VIX",M.indiavix,2)+row("Bank Nifty",M.banknifty,0)+
+    `<div class="row mu sm"><span>Pre-market proxies</span><span></span></div>`+
+    row("S&P futures",M.es,0)+row("Nasdaq futures",M.nq,0)+row("Nikkei",M.nikkei,0)+row("Hang Seng",M.hangseng,0);
+  nifty+=c?`<div class="row${st(c)}"><span>PCR (${c.expiry})</span><span class="v">${nf(c.pcr)}</span></div>
+    <div class="row${st(c)}"><span>Max pain</span><span class="v">${nf(c.max_pain,0)}</span></div>
+    <div class="row${st(c)}"><span>Resistance (CE OI)</span><span class="v">${c.resistance.map(x=>nf(x,0)).join(" · ")}</span></div>
+    <div class="row${st(c)}"><span>Support (PE OI)</span><span class="v">${c.support.map(x=>nf(x,0)).join(" · ")}</span></div>`:
+    `<div class="row"><span class="mu">Option chain</span><span class="v mu">n/a</span></div>`;
+  nifty+=fd?`<div class="row${st(fd)}"><span>FII net ₹cr (${fd.date})</span><span class="v ${cls(fd.fii.net)}">${sg(fd.fii.net)}${nf(fd.fii.net,0)}</span></div>
+    <div class="row${st(fd)}"><span>DII net ₹cr</span><span class="v ${cls(fd.dii.net)}">${sg(fd.dii.net)}${nf(fd.dii.net,0)}</span></div>`:
+    `<div class="row"><span class="mu">FII/DII flows</span><span class="v mu">n/a</span></div>`;
+  nifty+=ff?`<div class="row${st(ff)}"><span>FII index fut long % (${ff.date})</span><span class="v">${nf(ff.long_pct,1)}% <span class="${cls(ff.net)}">net ${sg(ff.net)}${nf(ff.net,0)}</span></span></div>`:
+    `<div class="row"><span class="mu">FII index futures</span><span class="v mu">n/a</span></div>`;
+  nifty+=drivers(d.tilt.nifty)+`</div>`;
+
+  const names={gold:"Gold",silver:"Silver",copper:"Copper",nifty:"Nifty"};
+  const mx=Math.max(6,...Object.values(d.tilt).map(t=>Math.abs(t.score)));
+  const tl=`<div class="card"><h2>Macro tilt (5-day driver trends)</h2><div class="bars">`+
+    Object.keys(names).map(k=>{const t=d.tilt[k],w=Math.abs(t.score)/mx*50;
+      return `<div class="br"><span>${names[k]}</span><div class="bar"><i style="${t.score>=0?"left:50%":"right:50%"};width:${w}%;background:var(${t.score>=0?"--up":"--dn"})"></i></div><b class="${cls(t.score)}">${sg(t.score)}${t.score}</b></div>`}).join("")+
+    `</div><p class="mu sm" style="margin:10px 0 0">Rule-of-thumb weights in fetch_data.py. A context read, not a signal.</p></div>`;
+
+  $("grid").innerHTML=gold+silver+copper+nifty+tl;
+  $("st").innerHTML=Object.entries(d.status).map(([k,v])=>`<span class="${v.ok?"":"bad"}" title="${v.ok?"":v.error}">${k}${v.ok?"":" ✕"}</span>`).join("");
+  $("notes").textContent=d.notes.mcx_note+" Duties used: gold "+d.notes.duty.gold*100+"%, silver "+d.notes.duty.silver*100+"%, copper "+d.notes.duty.copper*100+"% (edit config.json).";
+}
+async function load(){
+  try{
+    const r=await fetch("data.json?t="+Date.now());
+    if(!r.ok)throw new Error(r.status);
+    render(await r.json());
+  }catch(e){$("gen").textContent="No data yet ("+e.message+"). Run the data job first."}
+}
+$("rf").onclick=load;load();setInterval(load,300000);
+</script></body></html>

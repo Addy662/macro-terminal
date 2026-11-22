@@ -1,0 +1,28 @@
+{
+  "yahoo": {
+    "nifty": ["Nifty 50", "^NSEI"],
+    "banknifty": ["Bank Nifty", "^NSEBANK"],
+    "indiavix": ["India VIX", "^INDIAVIX"],
+    "es": ["S&P fut", "ES=F"],
+    "nq": ["Nasdaq fut", "NQ=F"],
+    "nikkei": ["Nikkei", "^N225"],
+    "hangseng": ["Hang Seng", "^HSI"],
+    "gold": ["COMEX Gold $/oz", "GC=F"],
+    "silver": ["COMEX Silver $/oz", "SI=F"],
+    "copper": ["COMEX Copper $/lb", "HG=F"],
+    "brent": ["Brent $/bbl", "BZ=F"],
+    "dxy": ["DXY", "DX-Y.NYB"],
+    "usdinr": ["USD/INR", "INR=X"],
+    "usdcny": ["USD/CNY", "CNY=X"],
+    "us10y": ["US 10Y %", "^TNX"],
+    "usvix": ["US VIX", "^VIX"]
+  },
+  "fred": {
+    "real10y": ["US 10Y real yield %", "DFII10"],
+    "fedfunds": ["Fed funds %", "DFF"],
+    "curve": ["10Y-2Y spread %", "T10Y2Y"]
+  },
+  "duty_note": "Edit these to match the current Indian import duty. They are assumptions, not live values. GST is not included.",
+  "duty": { "gold": 0.06, "silver": 0.06, "copper": 0.025 },
+  "premium_inr": { "gold_per_10g": 0, "silver_per_kg": 0, "copper_per_kg": 0 }
+}
