@@ -1,11 +1,22 @@
 {
   "_note": "Hand-maintained fields with no free no-login feed. fetch_data.py only reads this file, never writes it. Easiest way to update: open a new issue via the 'Update manual data' template (github.com/Addy662/macro-terminal/issues/new/choose) - a bot parses the form and commits here automatically. Or edit this file directly. Leave a field null if you haven't set it yet.",
-  "rbi_repo_rate": { "value": 5.50, "as_of": "2026-10-07", "expected_move": "hike (25bp, to 5.75%)",
-    "_source": "Set at the Oct 7 2026 MPC meeting (hiked from 5.25%) after Aug CPI ran hot. As of late Nov, Barclays/IDFC First/Choice Institutional converge on a further 25bp hike at the Dec 4 2026 meeting (Oct CPI broke above the 6% ceiling), with a ~6-6.25% terminal rate expected by Feb 2027. Verify/update before Dec 4 - this is a forecast, not a fact." },
-  "india_cpi": { "previous": 5.54, "actual": 6.09, "as_of": "2026-11-12",
-    "_source": "MoSPI release: Oct 2026 CPI YoY 6.09% (provisional), first print above RBI's 6% ceiling since Oct 2024; Sep 2026 was 5.54%." },
-  "india_gsec10y": { "value": 7.19, "as_of": "2026-11-20",
-    "_source": "Press-cited (tradingeconomics.com), not from an exact free API - treat as approximate, update when you have a sharper number." },
+  "rbi_repo_rate": {
+    "value": 5.5,
+    "as_of": "2026-10-07",
+    "expected_move": "hike (25bp, to 5.75%)",
+    "_source": "Set at the Oct 7 2026 MPC meeting (hiked from 5.25%) after Aug CPI ran hot. As of late Nov, Barclays/IDFC First/Choice Institutional converge on a further 25bp hike at the Dec 4 2026 meeting (Oct CPI broke above the 6% ceiling), with a ~6-6.25% terminal rate expected by Feb 2027. Verify/update before Dec 4 - this is a forecast, not a fact."
+  },
+  "india_cpi": {
+    "previous": 5.54,
+    "actual": 6.09,
+    "as_of": "2026-11-12",
+    "_source": "MoSPI release: Oct 2026 CPI YoY 6.09% (provisional), first print above RBI's 6% ceiling since Oct 2024; Sep 2026 was 5.54%."
+  },
+  "india_gsec10y": {
+    "value": 7.19,
+    "as_of": "2026-11-23",
+    "_source": "Test submission via the new issue-form automation - confirming today's value, no real change."
+  },
   "consensus": {
     "_note": "Fill in shortly before each release so the dashboard can show the surprise (actual - expected). us_cpi/us_pce are YoY %, us_jobs is payrolls added in thousands, us_gdp is annualized QoQ %. As of 2026-11-22: us_pce and us_gdp are firmer (Admiral Markets preview / Trading Economics); us_cpi is a nowcast cluster, not an official Street poll yet; us_jobs is genuinely unsettled (trackers range ~50-62K) - re-verify all four closer to each release date (Dec 10, Nov 25, Nov 25, Dec 4 respectively).",
     "us_cpi": 3.9,
