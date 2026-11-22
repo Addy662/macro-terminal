@@ -1,7 +1,7 @@
 {
   "_note": "Hand-maintained fields with no free no-login feed. fetch_data.py only reads this file, never writes it. Easiest way to update: open a new issue via the 'Update manual data' template (github.com/Addy662/macro-terminal/issues/new/choose) - a bot parses the form and commits here automatically. Or edit this file directly. Leave a field null if you haven't set it yet.",
   "rbi_repo_rate": {
-    "value": 5.5,
+    "value": 5,
     "as_of": "2026-10-07",
     "expected_move": "6.00",
     "_source": "Set at the Oct 7 2026 MPC meeting (hiked from 5.25%) after Aug CPI ran hot. As of late Nov, Barclays/IDFC First/Choice Institutional converge on a further 25bp hike at the Dec 4 2026 meeting (Oct CPI broke above the 6% ceiling), with a ~6-6.25% terminal rate expected by Feb 2027. Verify/update before Dec 4 - this is a forecast, not a fact."
