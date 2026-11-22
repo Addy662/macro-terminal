@@ -1,0 +1,11 @@
+{
+  "_note": "Hand-maintained fields with no free no-login feed. fetch_data.py only reads this file, never writes it. Update the relevant entry's value/actual and as_of right before or after the matching release; leave a field null if you haven't set it yet.",
+  "rbi_repo_rate": { "value": null, "as_of": null, "expected_move": "hold" },
+  "india_cpi": { "previous": null, "actual": null, "as_of": null },
+  "india_gsec10y": { "value": null, "as_of": null },
+  "consensus": {
+    "_note": "Fill in shortly before each release so the dashboard can show the surprise (actual - expected). us_cpi is YoY %, us_jobs is payrolls added in thousands.",
+    "us_cpi": null,
+    "us_jobs": null
+  }
+}

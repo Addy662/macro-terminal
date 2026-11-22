@@ -24,5 +24,16 @@
   },
   "duty_note": "Edit these to match the current Indian import duty. They are assumptions, not live values. GST is not included.",
   "duty": { "gold": 0.06, "silver": 0.06, "copper": 0.025 },
-  "premium_inr": { "gold_per_10g": 0, "silver_per_kg": 0, "copper_per_kg": 0 }
+  "premium_inr": { "gold_per_10g": 0, "silver_per_kg": 0, "copper_per_kg": 0 },
+  "events_note": "Irregular committee/agency dates - refresh from official calendars (federalreserve.gov, rbi.org.in, bls.gov, bea.gov, mospi.gov.in) as new ones are published. India CPI, China PMI and NSE F&O expiry are computed by rule in fetch_data.py instead, since those follow a fixed day-of-month/weekday pattern.",
+  "events": {
+    "fomc": { "label": "Fed rate decision", "dates": ["2026-12-09"] },
+    "rbi": { "label": "RBI rate decision", "dates": ["2026-12-04"] },
+    "us_cpi": { "label": "US CPI release", "dates": ["2026-12-10"] },
+    "us_jobs": { "label": "US jobs report", "dates": ["2026-12-04", "2027-01-08"] },
+    "us_pce": { "label": "US PCE release", "dates": ["2026-11-25", "2026-12-23"] },
+    "us_gdp": { "label": "US GDP release", "dates": ["2026-11-25"] },
+    "india_gdp": { "label": "India GDP release", "dates": ["2026-11-30"] },
+    "india_iip": { "label": "India IIP release", "dates": ["2026-11-28"] }
+  }
 }

@@ -39,6 +39,16 @@ if PREV.get("demo"):  # never reuse synthetic numbers as "last known" real value
     PREV = {}
 STATUS = {}
 
+HIST = ROOT / "site" / "history.json"
+try:
+    MANUAL = json.loads((ROOT / "manual.json").read_text())
+except Exception:
+    MANUAL = {}
+try:
+    HISTORY = json.loads(HIST.read_text())
+except Exception:
+    HISTORY = []
+
 
 # ---------- helpers ----------
 def summarize(pts, label):
@@ -105,18 +115,17 @@ def fred(sid):
 
 
 # ---------- US Treasury (backup for FRED real10y, no key) ----------
-def treasury_real10y():
+def treasury_tenor(kind, col):
     since = (NOW - dt.timedelta(days=120)).date()
     pts = []
     for yr in sorted({since.year, NOW.year}):
         r = requests.get("https://home.treasury.gov/resource-center/data-chart-center/"
                          "interest-rates/daily-treasury-rates.csv/%d/all" % yr,
-                         params={"type": "daily_treasury_real_yield_curve",
-                                 "field_tdr_date_value": yr, "page": "", "_format": "csv"},
+                         params={"type": kind, "field_tdr_date_value": yr, "page": "", "_format": "csv"},
                          headers=UA, timeout=25)
         r.raise_for_status()
         for row in csv.DictReader(io.StringIO(r.text)):
-            v = row.get("10 YR")
+            v = row.get(col)
             if not v:
                 continue
             d = dt.datetime.strptime(row["Date"], "%m/%d/%Y").date()
@@ -128,11 +137,86 @@ def treasury_real10y():
     return pts
 
 
+def treasury_real10y():
+    return treasury_tenor("daily_treasury_real_yield_curve", "10 YR")
+
+
 def fred_real10y():
     try:
         return fred("DFII10")
     except Exception:
         return treasury_real10y()
+
+
+# ---------- NY Fed EFFR (current Fed funds rate + target range, no key) ----------
+def effr():
+    r = requests.get("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json",
+                     headers=UA, timeout=20)
+    r.raise_for_status()
+    row = r.json()["refRates"][0]
+    return {"effr": row["percentRate"], "target_low": row["targetRateFrom"],
+            "target_high": row["targetRateTo"], "date": row["effectiveDate"], "stale": False}
+
+
+def fed_signal(fed_now):
+    """Indicative only: front-month CBOT 30-Day Fed Funds future vs current target midpoint.
+    Not CME FedWatch - dated contracts aren't reachable through Yahoo's chart endpoint."""
+    pts = yahoo("ZQ=F")
+    implied = round(100 - pts[-1][1], 3)
+    mid = (fed_now["target_low"] + fed_now["target_high"]) / 2
+    delta = round((implied - mid) * 100, 1)
+    label = "leaning cut" if delta < -5 else "leaning hike" if delta > 5 else "near current"
+    return {"implied": implied, "delta_bps": delta, "label": label, "asof": pts[-1][0]}
+
+
+# ---------- BLS public API (no key) ----------
+BLS_SERIES = {"cpi_sa": "CUSR0000SA0", "cpi_nsa": "CUUR0000SA0",
+              "core_cpi_sa": "CUSR0000SA0L1E", "core_cpi_nsa": "CUUR0000SA0L1E",
+              "payrolls": "CES0000000001", "unemployment": "LNS14000000", "avg_hourly_earn": "CES0500000003"}
+
+
+def bls_fetch(ids, years=6):
+    r = requests.post("https://api.bls.gov/publicAPI/v2/timeseries/data/",
+                      json={"seriesid": ids, "startyear": str(NOW.year - years), "endyear": str(NOW.year)},
+                      headers=UA, timeout=25)
+    r.raise_for_status()
+    j = r.json()
+    if j.get("status") != "REQUEST_SUCCEEDED":
+        raise ValueError(str(j.get("message")) or "BLS request failed")
+    out = {}
+    for s in j["Results"]["series"]:
+        pts = [[f"{row['year']}-{row['period'][1:]}-01", float(row["value"])]
+               for row in s["data"] if row["period"].startswith("M") and row["value"] != "-"]
+        pts.sort()
+        out[s["seriesID"]] = pts
+    return out
+
+
+def pct_change(pts, back):
+    if len(pts) <= back:
+        raise ValueError("too few points")
+    last, prev = pts[-1][1], pts[-1 - back][1]
+    return round((last / prev - 1) * 100, 3)
+
+
+def cpi_metrics():
+    d = bls_fetch([BLS_SERIES["cpi_sa"], BLS_SERIES["cpi_nsa"], BLS_SERIES["core_cpi_sa"], BLS_SERIES["core_cpi_nsa"]])
+    sa, nsa = d[BLS_SERIES["cpi_sa"]], d[BLS_SERIES["cpi_nsa"]]
+    yoy_series = [[nsa[i][0], round((nsa[i][1] / nsa[i - 12][1] - 1) * 100, 3)] for i in range(12, len(nsa))]
+    return {"label": "US CPI YoY", "last": yoy_series[-1][1], "prev": yoy_series[-2][1],
+            "mom": pct_change(sa, 1), "core_yoy": pct_change(d[BLS_SERIES["core_cpi_nsa"]], 12),
+            "core_mom": pct_change(d[BLS_SERIES["core_cpi_sa"]], 1),
+            "period": yoy_series[-1][0], "series": yoy_series[-45:], "stale": False}
+
+
+def jobs_metrics():
+    d = bls_fetch([BLS_SERIES["payrolls"], BLS_SERIES["unemployment"], BLS_SERIES["avg_hourly_earn"]])
+    pay, une, ahe = d[BLS_SERIES["payrolls"]], d[BLS_SERIES["unemployment"]], d[BLS_SERIES["avg_hourly_earn"]]
+    pay_series = [[pay[i][0], round(pay[i][1] - pay[i - 1][1], 1)] for i in range(1, len(pay))]
+    return {"label": "US payrolls added (000s)", "last": pay_series[-1][1], "prev": pay_series[-2][1],
+            "unemployment": une[-1][1], "unemployment_prev": une[-2][1],
+            "avg_hourly_earn_yoy": pct_change(ahe, 12),
+            "period": pay_series[-1][0], "series": pay_series[-45:], "stale": False}
 
 
 # ---------- NSE (best effort, often blocked from cloud IPs) ----------
@@ -269,6 +353,101 @@ def tilt(market, fredd, nse):
     return out
 
 
+# ---------- events calendar ----------
+def next_dates(iso_list, n=1):
+    today = NOW.date()
+    return sorted(d for d in iso_list if dt.date.fromisoformat(d) >= today)[:n]
+
+
+def next_weekday(d, weekday):
+    return d + dt.timedelta(days=(weekday - d.weekday()) % 7)
+
+
+def last_tuesday(year, month):
+    nxt = dt.date(year + 1, 1, 1) if month == 12 else dt.date(year, month + 1, 1)
+    d = nxt - dt.timedelta(days=1)
+    while d.weekday() != 1:
+        d -= dt.timedelta(days=1)
+    return d
+
+
+def fo_expiries():
+    today = NOW.date()
+    weekly = next_weekday(today, 1)
+    monthly = last_tuesday(today.year, today.month)
+    if monthly < today:
+        y, m = (today.year, today.month + 1) if today.month < 12 else (today.year + 1, 1)
+        monthly = last_tuesday(y, m)
+    return weekly, monthly
+
+
+def nth_of_month(day):
+    today = NOW.date()
+    y, m = today.year, today.month
+    while True:
+        try:
+            d = dt.date(y, m, day)
+        except ValueError:
+            d = (dt.date(y, m + 1, 1) if m < 12 else dt.date(y + 1, 1, 1)) - dt.timedelta(days=1)
+        if d >= today:
+            return d
+        y, m = (y, m + 1) if m < 12 else (y + 1, 1)
+
+
+def month_end():
+    today = NOW.date()
+    y, m = today.year, today.month
+    while True:
+        d = (dt.date(y, m + 1, 1) if m < 12 else dt.date(y + 1, 1, 1)) - dt.timedelta(days=1)
+        if d >= today:
+            return d
+        y, m = (y, m + 1) if m < 12 else (y + 1, 1)
+
+
+def events_list():
+    today = NOW.date()
+    ev = []
+    for eid, info in CFG.get("events", {}).items():
+        dts = next_dates(info["dates"], 1)
+        if dts:
+            ev.append({"id": eid, "label": info["label"], "date": dts[0]})
+    weekly, monthly = fo_expiries()
+    ev += [{"id": "fo_weekly", "label": "Nifty weekly expiry", "date": weekly.isoformat()},
+           {"id": "fo_monthly", "label": "Nifty monthly expiry", "date": monthly.isoformat()},
+           {"id": "india_cpi", "label": "India CPI", "date": nth_of_month(12).isoformat()},
+           {"id": "china_pmi", "label": "China PMI", "date": month_end().isoformat()}]
+    for e in ev:
+        e["days"] = (dt.date.fromisoformat(e["date"]) - today).days
+    ev.sort(key=lambda e: e["date"])
+    return ev
+
+
+# ---------- movers + release history ----------
+def movers(*dicts):
+    items = []
+    for dd in dicts:
+        for v in dd.values():
+            if isinstance(v, dict) and "pct" in v and v.get("label"):
+                items.append({"label": v["label"], "pct": v["pct"], "chg": v["chg"], "stale": v.get("stale", False)})
+    items.sort(key=lambda x: -abs(x["pct"]))
+    return items[:8]
+
+
+def log_release(history, rid, label, rel, snapshot):
+    if not isinstance(rel, dict) or not rel.get("period"):
+        return history
+    prior = next((h for h in reversed(history) if h["id"] == rid), None)
+    if prior and prior["period"] == rel["period"]:
+        return history
+    expected = MANUAL.get("consensus", {}).get(rid)
+    actual = rel.get("last")
+    surprise = round(actual - expected, 3) if isinstance(expected, (int, float)) and isinstance(actual, (int, float)) else None
+    entry = {"id": rid, "label": label, "period": rel["period"], "previous": rel.get("prev"),
+             "expected": expected, "actual": actual, "surprise": surprise,
+             "asof": NOW.isoformat(timespec="seconds"), "reaction": snapshot}
+    return (history + [entry])[-20:]
+
+
 # ---------- demo data ----------
 def demo_series(base, vol, seed):
     rnd = random.Random(seed)
@@ -351,8 +530,76 @@ def main():
         if len(pts) >= 7:
             mcx["gs_ratio"] = summarize(pts, "Gold/Silver ratio")
 
+    yields_ = {}
+    if DEMO:
+        yields_ = {"us2y": summarize(demo_series(3.6, 0.004, 101), "US 2Y"),
+                   "us10y": summarize(demo_series(4.1, 0.004, 102), "US 10Y"),
+                   "us30y": summarize(demo_series(4.7, 0.004, 103), "US 30Y")}
+        for k in ("treasury:us2y", "treasury:us10y", "treasury:us30y"):
+            STATUS[k] = {"ok": True}
+    else:
+        for k, (label, col) in {"us2y": ("US 2Y", "2 Yr"), "us10y": ("US 10Y", "10 Yr"),
+                                "us30y": ("US 30Y", "30 Yr")}.items():
+            yields_[k] = guarded(f"treasury:{k}",
+                                 lambda col=col, label=label: summarize(treasury_tenor("daily_treasury_yield_curve", col), label),
+                                 PREV.get("yields", {}).get(k))
+        yields_ = {k: v for k, v in yields_.items() if v}
+    if "us2y" in yields_ and "us10y" in yields_:
+        a, b = dict(yields_["us2y"]["series"]), dict(yields_["us10y"]["series"])
+        pts = [[d, round(b[d] - a[d], 3)] for d in sorted(b) if d in a]
+        if len(pts) >= 7:
+            yields_["curve_10_2"] = summarize(pts, "US 10Y-2Y spread")
+    if MANUAL.get("india_gsec10y", {}).get("value") is not None:
+        in10 = dict(MANUAL["india_gsec10y"])
+        if "us10y" in yields_:
+            in10["spread_us10y"] = round(in10["value"] - yields_["us10y"]["last"], 3)
+        yields_["india10y"] = in10
+
+    rates = {}
+    if DEMO:
+        rates = {"fed": {"effr": 3.88, "target_low": 3.75, "target_high": 4.0, "date": "demo",
+                         "implied": 3.8, "delta_bps": -8, "label": "leaning cut", "asof": "demo", "stale": False},
+                 "rbi": MANUAL.get("rbi_repo_rate", {})}
+        for k in ("effr", "yahoo:ZQ=F"):
+            STATUS[k] = {"ok": True}
+    else:
+        fed = guarded("effr", effr, PREV.get("rates", {}).get("fed"))
+        if isinstance(fed, dict) and "target_low" in fed:
+            sig = guarded("yahoo:ZQ=F", lambda: fed_signal(fed), None)
+            if isinstance(sig, dict):
+                fed = dict(fed, **sig)
+        rates["fed"] = fed
+        rates["rbi"] = MANUAL.get("rbi_repo_rate", {})
+
+    releases = {}
+    if DEMO:
+        releases = {"us_cpi": {"label": "US CPI YoY", "last": 3.0, "prev": 2.9, "mom": 0.3, "core_yoy": 3.1,
+                               "core_mom": 0.2, "period": "demo", "series": [["2026-01-01", 3.0]], "stale": False},
+                   "us_jobs": {"label": "US payrolls added (000s)", "last": 120, "prev": 110, "unemployment": 4.1,
+                               "unemployment_prev": 4.2, "avg_hourly_earn_yoy": 3.9, "period": "demo",
+                               "series": [["2026-01-01", 120]], "stale": False}}
+        for k in ("bls:cpi", "bls:jobs"):
+            STATUS[k] = {"ok": True}
+    else:
+        releases["us_cpi"] = guarded("bls:cpi", cpi_metrics, PREV.get("releases", {}).get("us_cpi"))
+        releases["us_jobs"] = guarded("bls:jobs", jobs_metrics, PREV.get("releases", {}).get("us_jobs"))
+        releases = {k: v for k, v in releases.items() if v}
+    if MANUAL.get("india_cpi", {}).get("actual") is not None:
+        releases["india_cpi"] = MANUAL["india_cpi"]
+
+    hist = HISTORY
+    if not DEMO:
+        snap = {k: market[k]["pct"] for k in ("gold", "nifty", "dxy", "usdinr") if k in market}
+        if "us10y" in yields_:
+            snap["us10y_chg"] = yields_["us10y"]["chg"]
+        for rid, label in (("us_cpi", "US CPI"), ("us_jobs", "US jobs report")):
+            hist = log_release(hist, rid, label, releases.get(rid), snap)
+        HIST.write_text(json.dumps(hist, separators=(",", ":")))
+
     data = {"generated": NOW.isoformat(timespec="seconds"), "demo": DEMO, "market": market, "fred": fredd,
             "nse": nse, "mcx": mcx, "tilt": tilt(market, fredd, nse), "status": STATUS,
+            "rates": rates, "yields": yields_, "releases": releases, "events": events_list(),
+            "movers": movers(market, fredd, mcx), "recent": hist[-5:][::-1],
             "notes": {"duty": CFG["duty"], "mcx_note": "Fair value = COMEX x USD/INR x (1+duty) + premium. "
                       "Not the traded MCX price; GST excluded."}}
     OUT.parent.mkdir(exist_ok=True)

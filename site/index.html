@@ -80,6 +80,62 @@ function metal(title,key,unit,d,rows){
   const m=d.mcx[key];
   return `<div class="card"><h2>${title} ${tiltTag(d.tilt[key])}</h2>${hero(m,unit)}${rows}${drivers(d.tilt[key])}</div>`;
 }
+function fmtDays(n){return n===0?"today":n===1?"tomorrow":n>0?`in ${n}d`:`${-n}d ago`}
+function eventsCard(d){
+  const ev=(d.events||[]).slice(0,16);
+  if(!ev.length)return"";
+  return `<div class="card"><h2>Upcoming events</h2>`+
+    ev.map(e=>`<div class="row"><span>${e.label}</span><span class="v">${e.date} <span class="mu">${fmtDays(e.days)}</span></span></div>`).join("")+
+    `</div>`;
+}
+function ratesCard(d){
+  const r=d.rates||{},fed=r.fed,rbi=r.rbi;
+  let h=`<div class="card"><h2>Rate expectations</h2>`;
+  h+=fed&&fed.target_low!=null?`<div class="row${fed.stale?" stale":""}"><span>Fed funds target</span><span class="v">${nf(fed.target_low,2)}–${nf(fed.target_high,2)}%</span></div>
+    <div class="row"><span>EFFR (${fed.date||""})</span><span class="v">${nf(fed.effr,2)}%</span></div>`+
+    (fed.implied!=null?`<div class="row"><span>Front-month fed funds futures</span><span class="v">${nf(fed.implied,2)}% <span class="mu">${fed.label}</span></span></div>
+    <p class="mu sm" style="margin:6px 0 8px">Indicative only – derived from the continuous ZQ contract, not CME FedWatch.</p>`:""):
+    `<div class="row"><span class="mu">Fed funds</span><span class="v mu">n/a</span></div>`;
+  h+=rbi&&rbi.value!=null?`<div class="row"><span>RBI repo rate (${rbi.as_of||""})</span><span class="v">${nf(rbi.value,2)}% <span class="mu">${rbi.expected_move||""}</span></span></div>`:
+    `<div class="row"><span class="mu">RBI repo rate</span><span class="v mu">add in manual.json</span></div>`;
+  return h+`</div>`;
+}
+function yieldsCard(d){
+  const y=d.yields||{},f=d.fred||{};
+  let h=`<div class="card"><h2>Bond yields</h2>`+
+    row("US 2Y %",y.us2y,2,true)+row("US 10Y %",y.us10y,2,true)+row("US 30Y %",y.us30y,2,true)+
+    row("US 10Y-2Y spread",y.curve_10_2,2,true)+row("US 10Y real yield %",f.real10y,2,true);
+  const in10=y.india10y;
+  h+=in10&&in10.value!=null?`<div class="row"><span>India 10Y G-sec (${in10.as_of||""})</span><span class="v">${nf(in10.value,2)}% ${in10.spread_us10y!=null?`<span class="mu">${sg(in10.spread_us10y)}${nf(in10.spread_us10y,2)} vs US</span>`:""}</span></div>`:
+    `<div class="row"><span class="mu">India 10Y G-sec</span><span class="v mu">add in manual.json</span></div>`;
+  return h+`</div>`;
+}
+function releasesCard(d){
+  const rl=d.releases||{},c=rl.us_cpi,j=rl.us_jobs,ic=rl.india_cpi;
+  let h=`<div class="card"><h2>US releases</h2>`;
+  h+=c?`<div class="row${c.stale?" stale":""}"><span>US CPI YoY (${c.period})</span><span class="v">${nf(c.last,1)}%</span></div>
+    <div class="row"><span>Core CPI YoY</span><span class="v">${nf(c.core_yoy,1)}%</span></div>
+    <div class="row"><span>CPI MoM / core MoM</span><span class="v">${sg(c.mom)}${nf(c.mom,1)}% / ${sg(c.core_mom)}${nf(c.core_mom,1)}%</span></div>`:
+    `<div class="row"><span class="mu">US CPI</span><span class="v mu">n/a</span></div>`;
+  h+=j?`<div class="row${j.stale?" stale":""}"><span>US payrolls added (${j.period}, 000s)</span><span class="v">${sg(j.last)}${nf(j.last,0)}</span></div>
+    <div class="row"><span>Unemployment rate</span><span class="v">${nf(j.unemployment,1)}% <span class="mu">prev ${nf(j.unemployment_prev,1)}%</span></span></div>
+    <div class="row"><span>Avg hourly earnings YoY</span><span class="v">${nf(j.avg_hourly_earn_yoy,1)}%</span></div>`:
+    `<div class="row"><span class="mu">US jobs report</span><span class="v mu">n/a</span></div>`;
+  h+=ic&&ic.actual!=null?`<div class="row"><span>India CPI (${ic.as_of||""})</span><span class="v">${nf(ic.actual,1)}% <span class="mu">prev ${nf(ic.previous,1)}%</span></span></div>`:
+    `<div class="row"><span class="mu">India CPI</span><span class="v mu">add in manual.json</span></div>`;
+  return h+`</div>`;
+}
+function recentCard(d){
+  const rec=d.recent||[],mv=d.movers||[];
+  let h=`<div class="card"><h2>Recent releases &amp; movers</h2>`;
+  h+=rec.length?rec.map(e=>{
+    const surp=e.surprise!=null?`<span class="${cls(e.surprise)}">${sg(e.surprise)}${nf(e.surprise,2)} vs exp</span>`:`<span class="mu">no consensus set</span>`;
+    return `<div class="row"><span>${e.label} (${e.period})</span><span class="v">${nf(e.actual,2)} <span class="mu">prev ${nf(e.previous,2)}</span> ${surp}</span></div>`;
+  }).join(""):`<div class="row"><span class="mu">Recent releases</span><span class="v mu">none logged yet</span></div>`;
+  h+=`<div class="row mu sm" style="margin-top:4px"><span>Biggest movers</span><span></span></div>`;
+  h+=mv.slice(0,6).map(m=>`<div class="row${m.stale?" stale":""}"><span>${m.label}</span><span class="v ${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</span></div>`).join("");
+  return h+`</div>`;
+}
 function render(d){
   const M=d.market,F=d.fred,N=d.nse||{};
   $("gen").textContent="Updated "+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
@@ -123,7 +179,7 @@ function render(d){
       return `<div class="br"><span>${names[k]}</span><div class="bar"><i style="${t.score>=0?"left:50%":"right:50%"};width:${w}%;background:var(${t.score>=0?"--up":"--dn"})"></i></div><b class="${cls(t.score)}">${sg(t.score)}${t.score}</b></div>`}).join("")+
     `</div><p class="mu sm" style="margin:10px 0 0">Rule-of-thumb weights in fetch_data.py. A context read, not a signal.</p></div>`;
 
-  $("grid").innerHTML=gold+silver+copper+nifty+tl;
+  $("grid").innerHTML=gold+silver+copper+nifty+tl+eventsCard(d)+ratesCard(d)+yieldsCard(d)+releasesCard(d)+recentCard(d);
   $("st").innerHTML=Object.entries(d.status).map(([k,v])=>`<span class="${v.ok?"":"bad"}" title="${v.ok?"":v.error}">${k}${v.ok?"":" ✕"}</span>`).join("");
   $("notes").textContent=d.notes.mcx_note+" Duties used: gold "+d.notes.duty.gold*100+"%, silver "+d.notes.duty.silver*100+"%, copper "+d.notes.duty.copper*100+"% (edit config.json).";
 }
