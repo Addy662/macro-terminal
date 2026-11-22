@@ -16,6 +16,7 @@ import math
 import pathlib
 import random
 import sys
+import time
 
 import requests
 
@@ -103,6 +104,37 @@ def fred(sid):
     return pts
 
 
+# ---------- US Treasury (backup for FRED real10y, no key) ----------
+def treasury_real10y():
+    since = (NOW - dt.timedelta(days=120)).date()
+    pts = []
+    for yr in sorted({since.year, NOW.year}):
+        r = requests.get("https://home.treasury.gov/resource-center/data-chart-center/"
+                         "interest-rates/daily-treasury-rates.csv/%d/all" % yr,
+                         params={"type": "daily_treasury_real_yield_curve",
+                                 "field_tdr_date_value": yr, "page": "", "_format": "csv"},
+                         headers=UA, timeout=25)
+        r.raise_for_status()
+        for row in csv.DictReader(io.StringIO(r.text)):
+            v = row.get("10 YR")
+            if not v:
+                continue
+            d = dt.datetime.strptime(row["Date"], "%m/%d/%Y").date()
+            if d >= since:
+                pts.append([d.strftime("%Y-%m-%d"), float(v)])
+    pts.sort()
+    if len(pts) < 7:
+        raise ValueError("too few points")
+    return pts
+
+
+def fred_real10y():
+    try:
+        return fred("DFII10")
+    except Exception:
+        return treasury_real10y()
+
+
 # ---------- NSE (best effort, often blocked from cloud IPs) ----------
 def nse_session():
     s = requests.Session()
@@ -126,6 +158,19 @@ def nse_fiidii(s):
     if "fii" not in out or "dii" not in out:
         raise ValueError("unexpected FII/DII payload")
     return out
+
+
+def nse_chain_retry(tries=3, delay=4):
+    """Fresh session + warm-up on every attempt: NSE often blocks the first hit from a cloud IP."""
+    last = None
+    for i in range(tries):
+        try:
+            return nse_chain(nse_session())
+        except Exception as e:  # noqa
+            last = e
+            if i < tries - 1:
+                time.sleep(delay * (i + 1))
+    raise last
 
 
 def nse_chain(s):
@@ -258,7 +303,8 @@ def main():
             fredd[k] = summarize(demo_series(DEMO_BASE[k], 0.01, hash(k) % 1000), label)
             STATUS[f"fred:{k}"] = {"ok": True}
         else:
-            fredd[k] = guarded(f"fred:{k}", lambda sid=sid, label=label: summarize(fred(sid), label),
+            fetch = fred_real10y if k == "real10y" else (lambda sid=sid: fred(sid))
+            fredd[k] = guarded(f"fred:{k}", lambda fetch=fetch, label=label: summarize(fetch(), label),
                                PREV.get("fred", {}).get(k))
     market = {k: v for k, v in market.items() if v}
     fredd = {k: v for k, v in fredd.items() if v}
@@ -276,13 +322,12 @@ def main():
         try:
             sess = nse_session()
         except Exception as e:  # noqa
-            for k in ("nse:fii_dii", "nse:chain"):
-                STATUS[k] = {"ok": False, "error": f"session: {type(e).__name__}"}
+            STATUS["nse:fii_dii"] = {"ok": False, "error": f"session: {type(e).__name__}"}
         pn = PREV.get("nse", {})
         def stale(v):
             return dict(v, stale=True) if isinstance(v, dict) else v
         nse["fii_dii"] = guarded("nse:fii_dii", lambda: nse_fiidii(sess), pn.get("fii_dii")) if sess else stale(pn.get("fii_dii"))
-        nse["chain"] = guarded("nse:chain", lambda: nse_chain(sess), pn.get("chain")) if sess else stale(pn.get("chain"))
+        nse["chain"] = guarded("nse:chain", nse_chain_retry, pn.get("chain"))
         nse["fii_fut"] = guarded("nse:fii_fut", nse_fii_fut, pn.get("fii_fut"))
         nse = {k: v for k, v in nse.items() if v}
 
