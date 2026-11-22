@@ -23,9 +23,9 @@ jobs:
             const { execSync } = require('child_process');
 
             const FIELD_MAP = {
-              "RBI repo rate (%)": ["rbi_repo_rate", "value", "float"],
+              "RBI repo rate — just the number (%)": ["rbi_repo_rate", "value", "float"],
               "RBI as-of date (YYYY-MM-DD)": ["rbi_repo_rate", "as_of", "str"],
-              "RBI expected move at next meeting": ["rbi_repo_rate", "expected_move", "str"],
+              "RBI expected move at NEXT meeting — words, not a number": ["rbi_repo_rate", "expected_move", "str"],
               "RBI source / note (optional)": ["rbi_repo_rate", "_source", "str"],
               "India CPI actual YoY (%)": ["india_cpi", "actual", "float"],
               "India CPI previous month YoY (%)": ["india_cpi", "previous", "float"],
@@ -65,6 +65,9 @@ jobs:
               if (kind === "float") {
                 value = parseFloat(raw);
                 if (Number.isNaN(value)) { warnings.push(`${label}: "${raw}" is not a number, skipped`); continue; }
+              } else if (key === "expected_move" && /^-?\d+(\.\d+)?%?$/.test(raw.trim())) {
+                warnings.push(`${label}: "${raw}" looks like a bare number, not a description - skipped. Use the rate field above for the number, and put words here (e.g. "hike to ${raw}").`);
+                continue;
               }
               if (!manual[section]) manual[section] = {};
               manual[section][key] = value;

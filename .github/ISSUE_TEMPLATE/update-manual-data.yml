@@ -14,7 +14,8 @@ body:
   - type: input
     id: rbi_value
     attributes:
-      label: RBI repo rate (%)
+      label: "RBI repo rate — just the number (%)"
+      description: "The CURRENT rate, e.g. if it just got hiked to 5.75%, put 5.75 here. Not the date, not a description — only a number."
       placeholder: "5.75"
   - type: input
     id: rbi_as_of
@@ -24,7 +25,8 @@ body:
   - type: input
     id: rbi_expected_move
     attributes:
-      label: RBI expected move at next meeting
+      label: "RBI expected move at NEXT meeting — words, not a number"
+      description: "A short phrase describing what's expected next, not the rate itself. Do not put a bare number like \"6.00\" here — it won't be understood as a rate."
       placeholder: "hold  /  hike (25bp, to 6.00%)  /  cut (25bp, to 5.50%)"
   - type: input
     id: rbi_source
