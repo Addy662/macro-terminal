@@ -1,8 +1,11 @@
 {
   "_note": "Hand-maintained fields with no free no-login feed. fetch_data.py only reads this file, never writes it. Update the relevant entry's value/actual and as_of right before or after the matching release; leave a field null if you haven't set it yet.",
-  "rbi_repo_rate": { "value": null, "as_of": null, "expected_move": "hold" },
-  "india_cpi": { "previous": null, "actual": null, "as_of": null },
-  "india_gsec10y": { "value": null, "as_of": null },
+  "rbi_repo_rate": { "value": 5.50, "as_of": "2026-10-07", "expected_move": "hike",
+    "_source": "Set at the Oct 7 2026 MPC meeting (hiked from 5.25%) after Aug CPI ran hot; reporting as of mid-Nov expects another 25bp hike at the Dec 4 2026 meeting since Oct CPI broke above the 6% ceiling. Verify/update before Dec 4 - this is a forecast, not a fact." },
+  "india_cpi": { "previous": 5.54, "actual": 6.09, "as_of": "2026-11-12",
+    "_source": "MoSPI release: Oct 2026 CPI YoY 6.09% (provisional), first print above RBI's 6% ceiling since Oct 2024; Sep 2026 was 5.54%." },
+  "india_gsec10y": { "value": 7.19, "as_of": "2026-11-20",
+    "_source": "Press-cited (tradingeconomics.com), not from an exact free API - treat as approximate, update when you have a sharper number." },
   "consensus": {
     "_note": "Fill in shortly before each release so the dashboard can show the surprise (actual - expected). us_cpi is YoY %, us_jobs is payrolls added in thousands.",
     "us_cpi": null,
