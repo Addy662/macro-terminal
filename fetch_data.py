@@ -16,6 +16,7 @@ import math
 import os
 import pathlib
 import random
+import re
 import sys
 import time
 
@@ -278,6 +279,35 @@ def gdp_metrics():
             "period": pts[-1][0], "series": pts[-45:], "stale": False}
 
 
+# ---------- China PMI (free, no key - official NBS data via chinadata.live) ----------
+def china_pmi():
+    r = requests.get("https://chinadata.live/api/v2/data/china-pmi", headers=UA, timeout=20)
+    r.raise_for_status()
+    rows = r.json()["data"]["data"]
+    pts = sorted([f"{d['date']}-01", float(d["value"])] for d in rows if d.get("value"))
+    if len(pts) < 7:
+        raise ValueError("too few points")
+    return pts
+
+
+# ---------- LME copper (free, no key - westmetall.com's plain HTML table) ----------
+def lme_copper():
+    r = requests.get("https://www.westmetall.com/en/markdaten.php",
+                     params={"action": "table", "field": "LME_Cu_cash"}, headers=UA, timeout=20)
+    r.raise_for_status()
+    rows = re.findall(r'<td >(\d{2}\. \w+ \d{4})</td>\s*<td >([\d,.]+)</td>', r.text)
+    pts = []
+    for d, v in rows:
+        try:
+            pts.append([dt.datetime.strptime(d, "%d. %B %Y").strftime("%Y-%m-%d"), float(v.replace(",", ""))])
+        except ValueError:
+            continue
+    pts.sort()
+    if len(pts) < 7:
+        raise ValueError("too few points")
+    return pts
+
+
 # ---------- NSE (best effort, often blocked from cloud IPs) ----------
 def nse_session():
     s = requests.Session()
@@ -336,6 +366,21 @@ def nse_chain(s):
     top = lambda m: [k for k, _ in sorted(m.items(), key=lambda kv: -kv[1])[:3]]
     return {"expiry": exp, "spot": rec["underlyingValue"], "pcr": round(sum(pe.values()) / sum(ce.values()), 3),
             "max_pain": min(pain, key=pain.get), "resistance": top(ce), "support": top(pe)}
+
+
+def gift_nifty():
+    """NSE IX's own derivatives-watch feed - unlike mcxindia.com this isn't behind
+    Akamai bot-management, a plain request works with no session/login needed."""
+    r = requests.get("https://www.nseix.com/api/market-rate", params={"type": "derivatives"},
+                     headers=UA, timeout=20)
+    r.raise_for_status()
+    rows = [d for d in r.json()["data"] if d.get("INSTRUMENTTYPE") == "FUTIDX" and d.get("SYMBOL") == "NIFTY"]
+    if not rows:
+        raise ValueError("no GIFT Nifty futures in response")
+    near = min(rows, key=lambda d: dt.datetime.strptime(d["EXPIRYDATE"], "%d-%b-%Y"))
+    last, chg, pct = float(near["LASTPRICE"]), float(near["DAYCHANGE_1"]), float(near["PERCHANGE"])
+    return {"label": "GIFT Nifty", "last": last, "prev": round(last - chg, 2), "chg": chg, "pct": pct,
+            "asof": near["TIMESTMP"], "expiry": near["EXPIRYDATE"], "stale": False}
 
 
 def nse_fii_fut():
@@ -544,6 +589,16 @@ def main():
             fetch = fred_real10y if k == "real10y" else (lambda sid=sid: fred(sid))
             fredd[k] = guarded(f"fred:{k}", lambda fetch=fetch, label=label: summarize(fetch(), label),
                                PREV.get("fred", {}).get(k))
+    if DEMO:
+        market["gift_nifty"] = dict(summarize(demo_series(25800, 0.006, 999), "GIFT Nifty"), expiry="demo")
+        market["lme_copper"] = summarize(demo_series(12300, 0.01, 998), "LME Copper $/tonne")
+        for k in ("nseix:gift_nifty", "westmetall:lme_copper"):
+            STATUS[k] = {"ok": True}
+    else:
+        market["gift_nifty"] = guarded("nseix:gift_nifty", gift_nifty, PREV.get("market", {}).get("gift_nifty"))
+        market["lme_copper"] = guarded("westmetall:lme_copper",
+                                       lambda: summarize(lme_copper(), "LME Copper $/tonne"),
+                                       PREV.get("market", {}).get("lme_copper"))
     market = {k: v for k, v in market.items() if v}
     fredd = {k: v for k, v in fredd.items() if v}
 
@@ -640,14 +695,18 @@ def main():
                    "us_pce": {"label": "US PCE YoY", "last": 2.8, "prev": 2.7, "mom": 0.2, "core_yoy": 2.9,
                               "core_mom": 0.2, "period": "demo", "series": [["2026-01-01", 2.8]], "stale": False},
                    "us_gdp": {"label": "US GDP growth (annualized QoQ)", "last": 2.5, "prev": 2.2,
-                              "period": "demo", "series": [["2026-01-01", 2.5]], "stale": False}}
-        for k in ("bls:cpi", "bls:jobs", "bea:pce", "bea:gdp"):
+                              "period": "demo", "series": [["2026-01-01", 2.5]], "stale": False},
+                   "china_pmi": {"label": "China Manufacturing PMI", "last": 49.8, "prev": 50.1,
+                                "period": "demo", "series": [["2026-01-01", 49.8]], "stale": False}}
+        for k in ("bls:cpi", "bls:jobs", "bea:pce", "bea:gdp", "chinadata:pmi"):
             STATUS[k] = {"ok": True}
     else:
         releases["us_cpi"] = guarded("bls:cpi", cpi_metrics, PREV.get("releases", {}).get("us_cpi"))
         releases["us_jobs"] = guarded("bls:jobs", jobs_metrics, PREV.get("releases", {}).get("us_jobs"))
         releases["us_pce"] = guarded("bea:pce", pce_metrics, PREV.get("releases", {}).get("us_pce"))
         releases["us_gdp"] = guarded("bea:gdp", gdp_metrics, PREV.get("releases", {}).get("us_gdp"))
+        releases["china_pmi"] = guarded("chinadata:pmi", lambda: summarize(china_pmi(), "China Manufacturing PMI"),
+                                        PREV.get("releases", {}).get("china_pmi"))
         releases = {k: v for k, v in releases.items() if v}
     if MANUAL.get("india_cpi", {}).get("actual") is not None:
         releases["india_cpi"] = MANUAL["india_cpi"]

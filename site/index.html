@@ -111,8 +111,8 @@ function yieldsCard(d){
   return h+`</div>`;
 }
 function releasesCard(d){
-  const rl=d.releases||{},c=rl.us_cpi,j=rl.us_jobs,p=rl.us_pce,g=rl.us_gdp,ic=rl.india_cpi;
-  let h=`<div class="card"><h2>US releases</h2>`;
+  const rl=d.releases||{},c=rl.us_cpi,j=rl.us_jobs,p=rl.us_pce,g=rl.us_gdp,ic=rl.india_cpi,cp=rl.china_pmi;
+  let h=`<div class="card"><h2>Global releases</h2>`;
   h+=c?`<div class="row${c.stale?" stale":""}"><span>US CPI YoY (${c.period})</span><span class="v">${nf(c.last,1)}%</span></div>
     <div class="row"><span>Core CPI YoY</span><span class="v">${nf(c.core_yoy,1)}%</span></div>
     <div class="row"><span>CPI MoM / core MoM</span><span class="v">${sg(c.mom)}${nf(c.mom,1)}% / ${sg(c.core_mom)}${nf(c.core_mom,1)}%</span></div>`:
@@ -128,6 +128,8 @@ function releasesCard(d){
     `<div class="row"><span class="mu">US GDP</span><span class="v mu">n/a</span></div>`;
   h+=ic&&ic.actual!=null?`<div class="row"><span>India CPI (${ic.as_of||""})</span><span class="v">${nf(ic.actual,1)}% <span class="mu">prev ${nf(ic.previous,1)}%</span></span></div>`:
     `<div class="row"><span class="mu">India CPI</span><span class="v mu">add in manual.json</span></div>`;
+  h+=cp?`<div class="row${cp.stale?" stale":""}"><span>China PMI (${cp.period||cp.asof})</span><span class="v">${nf(cp.last,1)} <span class="mu">${cp.last>=50?"expanding":"contracting"}</span></span></div>`:
+    `<div class="row"><span class="mu">China PMI</span><span class="v mu">n/a</span></div>`;
   return h+`</div>`;
 }
 function recentCard(d){
@@ -156,14 +158,15 @@ function render(d){
     row("COMEX silver $/oz",M.silver,2)+row("Gold/Silver ratio",d.mcx.gs_ratio,1)+row("COMEX copper $/lb",M.copper,3)+
     row("USD/INR",M.usdinr,3)+row("DXY",M.dxy,2));
   const copper=metal("MCX Copper – fair value","copper","₹/kg",d,
-    row("COMEX copper $/lb",M.copper,3)+row("USD/CNY",M.usdcny,4)+row("Hang Seng",M.hangseng,0)+
-    row("DXY",M.dxy,2)+row("Brent $/bbl",M.brent,2));
+    row("COMEX copper $/lb",M.copper,3)+row("LME copper $/t",M.lme_copper,0)+row("USD/CNY",M.usdcny,4)+
+    row("Hang Seng",M.hangseng,0)+row("DXY",M.dxy,2)+row("Brent $/bbl",M.brent,2));
 
   const c=N.chain,fd=N.fii_dii,ff=N.fii_fut;
   const st=x=>x&&x.stale?" stale":"";
   let nifty=`<div class="card"><h2>Nifty futures ${tiltTag(d.tilt.nifty)}</h2>${hero(M.nifty,"spot")}`+
     row("India VIX",M.indiavix,2)+row("Bank Nifty",M.banknifty,0)+
     `<div class="row mu sm"><span>Pre-market proxies</span><span></span></div>`+
+    row(`GIFT Nifty (${M.gift_nifty?M.gift_nifty.expiry:""})`,M.gift_nifty,0)+
     row("S&P futures",M.es,0)+row("Nasdaq futures",M.nq,0)+row("Nikkei",M.nikkei,0)+row("Hang Seng",M.hangseng,0);
   nifty+=c?`<div class="row${st(c)}"><span>PCR (${c.expiry})</span><span class="v">${nf(c.pcr)}</span></div>
     <div class="row${st(c)}"><span>Max pain</span><span class="v">${nf(c.max_pain,0)}</span></div>
