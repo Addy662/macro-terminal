@@ -1,0 +1,108 @@
+name: update-manual-data
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  apply:
+    if: |
+      github.event.issue.user.login == 'Addy662' &&
+      contains(github.event.issue.labels.*.name, 'manual-data-update')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+
+            const FIELD_MAP = {
+              "RBI repo rate (%)": ["rbi_repo_rate", "value", "float"],
+              "RBI as-of date (YYYY-MM-DD)": ["rbi_repo_rate", "as_of", "str"],
+              "RBI expected move at next meeting": ["rbi_repo_rate", "expected_move", "str"],
+              "RBI source / note (optional)": ["rbi_repo_rate", "_source", "str"],
+              "India CPI actual YoY (%)": ["india_cpi", "actual", "float"],
+              "India CPI previous month YoY (%)": ["india_cpi", "previous", "float"],
+              "India CPI as-of date (YYYY-MM-DD)": ["india_cpi", "as_of", "str"],
+              "India CPI source / note (optional)": ["india_cpi", "_source", "str"],
+              "India 10Y G-sec yield (%)": ["india_gsec10y", "value", "float"],
+              "India 10Y as-of date (YYYY-MM-DD)": ["india_gsec10y", "as_of", "str"],
+              "India 10Y source / note (optional)": ["india_gsec10y", "_source", "str"],
+              "US CPI consensus YoY (%)": ["consensus", "us_cpi", "float"],
+              "US jobs consensus, payrolls added (000s)": ["consensus", "us_jobs", "float"],
+              "US PCE consensus YoY (%)": ["consensus", "us_pce", "float"],
+              "US GDP consensus, annualized QoQ (%)": ["consensus", "us_gdp", "float"],
+            };
+
+            function parseBody(body) {
+              const fields = {};
+              const parts = ("\n" + body.trim()).split("\n### ").slice(1);
+              for (const part of parts) {
+                const nl = part.indexOf("\n");
+                const label = (nl === -1 ? part : part.slice(0, nl)).trim();
+                const value = (nl === -1 ? "" : part.slice(nl + 1)).trim();
+                if (value && value !== "_No response_") fields[label] = value;
+              }
+              return fields;
+            }
+
+            const body = context.payload.issue.body || "";
+            const fields = parseBody(body);
+            const manual = JSON.parse(fs.readFileSync("manual.json", "utf8"));
+            const changed = [];
+            const warnings = [];
+            for (const [label, raw] of Object.entries(fields)) {
+              const spec = FIELD_MAP[label];
+              if (!spec) continue;
+              const [section, key, kind] = spec;
+              let value = raw;
+              if (kind === "float") {
+                value = parseFloat(raw);
+                if (Number.isNaN(value)) { warnings.push(`${label}: "${raw}" is not a number, skipped`); continue; }
+              }
+              if (!manual[section]) manual[section] = {};
+              manual[section][key] = value;
+              changed.push(`${section}.${key} = ${value}`);
+            }
+
+            if (changed.length === 0) {
+              const note = warnings.length ? "\n\nWarnings:\n" + warnings.map(w => "- " + w).join("\n") : "";
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: "No fields were filled in (or none matched a known field), so nothing was changed. Closing this issue — feel free to open a new one with values filled in." + note
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, state: "closed"
+              });
+              return;
+            }
+
+            fs.writeFileSync("manual.json", JSON.stringify(manual, null, 2) + "\n");
+
+            execSync('git config user.name "macro-bot"');
+            execSync('git config user.email "macro-bot@users.noreply.github.com"');
+            execSync('git add manual.json');
+            execSync(`git commit -m "Update manual.json from issue #${context.issue.number}"`);
+            execSync('git pull --rebase');
+            execSync('git push');
+
+            const lines = ["Updated `manual.json`:", "", "```", ...changed, "```"];
+            if (warnings.length) lines.push("", "Warnings:", ...warnings.map(w => "- " + w));
+            lines.push("", "This will show up on the dashboard within 30 minutes (the regular data-refresh run also picks up manual.json each time).");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body: lines.join("\n")
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: "closed"
+            });

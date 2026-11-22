@@ -1,0 +1,100 @@
+name: Update manual data
+description: Update the hand-maintained fields (RBI repo rate, India CPI, India 10Y G-sec, consensus estimates) that have no free live feed.
+title: "Manual data update"
+labels: ["manual-data-update"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Leave any field blank to leave it unchanged. This opens an issue; a bot will read it, update `manual.json`, commit, comment back, and close this issue automatically within a minute or two.
+
+  - type: markdown
+    attributes:
+      value: "### RBI repo rate"
+  - type: input
+    id: rbi_value
+    attributes:
+      label: RBI repo rate (%)
+      placeholder: "5.75"
+  - type: input
+    id: rbi_as_of
+    attributes:
+      label: RBI as-of date (YYYY-MM-DD)
+      placeholder: "2026-12-04"
+  - type: input
+    id: rbi_expected_move
+    attributes:
+      label: RBI expected move at next meeting
+      placeholder: "hold  /  hike (25bp, to 6.00%)  /  cut (25bp, to 5.50%)"
+  - type: input
+    id: rbi_source
+    attributes:
+      label: RBI source / note (optional)
+      placeholder: "Set at the Dec 4 2026 MPC meeting."
+
+  - type: markdown
+    attributes:
+      value: "### India CPI"
+  - type: input
+    id: india_cpi_actual
+    attributes:
+      label: India CPI actual YoY (%)
+      placeholder: "6.09"
+  - type: input
+    id: india_cpi_previous
+    attributes:
+      label: India CPI previous month YoY (%)
+      placeholder: "5.54"
+  - type: input
+    id: india_cpi_as_of
+    attributes:
+      label: India CPI as-of date (YYYY-MM-DD)
+      placeholder: "2026-12-12"
+  - type: input
+    id: india_cpi_source
+    attributes:
+      label: India CPI source / note (optional)
+      placeholder: "MoSPI release for Nov 2026."
+
+  - type: markdown
+    attributes:
+      value: "### India 10Y G-sec"
+  - type: input
+    id: india_gsec10y_value
+    attributes:
+      label: India 10Y G-sec yield (%)
+      placeholder: "7.15"
+  - type: input
+    id: india_gsec10y_as_of
+    attributes:
+      label: India 10Y as-of date (YYYY-MM-DD)
+      placeholder: "2026-12-04"
+  - type: input
+    id: india_gsec10y_source
+    attributes:
+      label: India 10Y source / note (optional)
+      placeholder: "Press-cited, approximate."
+
+  - type: markdown
+    attributes:
+      value: "### Consensus estimates (for the next release of each)"
+  - type: input
+    id: consensus_us_cpi
+    attributes:
+      label: US CPI consensus YoY (%)
+      placeholder: "3.9"
+  - type: input
+    id: consensus_us_jobs
+    attributes:
+      label: US jobs consensus, payrolls added (000s)
+      placeholder: "150"
+  - type: input
+    id: consensus_us_pce
+    attributes:
+      label: US PCE consensus YoY (%)
+      placeholder: "3.8"
+  - type: input
+    id: consensus_us_gdp
+    attributes:
+      label: US GDP consensus, annualized QoQ (%)
+      placeholder: "3.5"
