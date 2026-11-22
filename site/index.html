@@ -3,55 +3,350 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Macro Terminal</title>
 <style>
-:root{--bg:#f4f5f8;--card:#fff;--tx:#14171c;--mu:#667085;--bd:#e3e6ec;--up:#0f7a55;--dn:#c2362b;--ac:#2f5bea;--wa:#b7791f;color-scheme:light}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--card:#171b22;--tx:#eceff4;--mu:#98a1b3;--bd:#2a303b;--up:#3ecf9a;--dn:#ff7a6e;--ac:#7c9cff;--wa:#e6b450;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0e1116;--card:#171b22;--tx:#eceff4;--mu:#98a1b3;--bd:#2a303b;--up:#3ecf9a;--dn:#ff7a6e;--ac:#7c9cff;--wa:#e6b450;color-scheme:dark}
+:root{
+  /* --- technical dashboard palette (Dashboard tab) --- */
+  --bg:#f4f5f8;--card:#fff;--tx:#14171c;--mu:#667085;--bd:#e3e6ec;--up:#0f7a55;--dn:#c2362b;--ac:#2f5bea;--wa:#b7791f;
+  /* --- editorial palette (shell + Explainer + Stories) --- */
+  --paper:#E6E7E1; --surface:#F7F7F3; --surface-2:#FFFFFF;
+  --ink:#1C1F1B; --ink-soft:#4B4E47; --ink-faint:#80837C;
+  --border: rgba(28,31,27,0.14);
+  --accent:#0F8A74; --accent-soft: rgba(15,138,116,0.10);
+  --gold:#AD8800; --gold-soft: rgba(173,136,0,0.10);
+  --oxide:#96233F; --oxide-soft: rgba(150,35,63,0.10);
+  --steel:#3661A0; --steel-soft: rgba(54,97,160,0.10);
+  --good:#0ca30c; --good-bg: rgba(12,163,12,0.13);
+  --warning:#b8790f; --warning-bg: rgba(250,178,25,0.22);
+  --critical:#d03b3b; --critical-bg: rgba(208,59,59,0.12);
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Roboto Mono", "JetBrains Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1116;--card:#171b22;--tx:#eceff4;--mu:#98a1b3;--bd:#2a303b;--up:#3ecf9a;--dn:#ff7a6e;--ac:#7c9cff;--wa:#e6b450;
+  --paper:#15171A; --surface:#1D2023; --surface-2:#22262A;
+  --ink:#EDEAE2; --ink-soft:#AEB2A9; --ink-faint:#787D77;
+  --border: rgba(237,234,226,0.14);
+  --accent:#2FA38D; --accent-soft: rgba(47,163,141,0.14);
+  --gold:#D1A94E; --gold-soft: rgba(209,169,78,0.14);
+  --oxide:#E17D62; --oxide-soft: rgba(225,125,98,0.14);
+  --steel:#7FA6DE; --steel-soft: rgba(127,166,222,0.14);
+  --good:#3ecf3e; --good-bg: rgba(62,207,62,0.14);
+  --warning:#fab219; --warning-bg: rgba(250,178,25,0.16);
+  --critical:#ff6e6e; --critical-bg: rgba(255,110,110,0.14);
+  color-scheme: dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0e1116;--card:#171b22;--tx:#eceff4;--mu:#98a1b3;--bd:#2a303b;--up:#3ecf9a;--dn:#ff7a6e;--ac:#7c9cff;--wa:#e6b450;
+  --paper:#15171A; --surface:#1D2023; --surface-2:#22262A;
+  --ink:#EDEAE2; --ink-soft:#AEB2A9; --ink-faint:#787D77;
+  --border: rgba(237,234,226,0.14);
+  --accent:#2FA38D; --accent-soft: rgba(47,163,141,0.14);
+  --gold:#D1A94E; --gold-soft: rgba(209,169,78,0.14);
+  --oxide:#E17D62; --oxide-soft: rgba(225,125,98,0.14);
+  --steel:#7FA6DE; --steel-soft: rgba(127,166,222,0.14);
+  --good:#3ecf3e; --good-bg: rgba(62,207,62,0.14);
+  --warning:#fab219; --warning-bg: rgba(250,178,25,0.16);
+  --critical:#ff6e6e; --critical-bg: rgba(255,110,110,0.14);
+  color-scheme: dark;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-.w{max-width:1180px;margin:0 auto;padding:14px 16px 40px}
-header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-h1{font-size:18px;margin:0}.mu{color:var(--mu)}.sm{font-size:12px}
-.up{color:var(--up)}.dn{color:var(--dn)}
-.banner{border:1px solid var(--wa);color:var(--wa);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px}
-.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px}
-.chip{flex:0 0 auto;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:7px 11px;min-width:112px}
-.chip b{display:block;font-size:11px;font-weight:500;color:var(--mu);white-space:nowrap}
-.chip span{font-weight:600}.chip i{font-style:normal;font-size:12px;margin-left:6px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
-.card h2{font-size:13px;margin:0 0 8px;color:var(--mu);font-weight:600;display:flex;justify-content:space-between;align-items:center}
-.big{font-size:26px;font-weight:650;letter-spacing:-.5px}.big small{font-size:12px;font-weight:400;color:var(--mu);margin-left:6px}
-.tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--bd);font-weight:600}
-.tag.Bullish{color:var(--up);border-color:var(--up)}.tag.Bearish{color:var(--dn);border-color:var(--dn)}
-.row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--bd);font-size:13px}
-.row:first-of-type{border-top:0}
-.row .v{font-variant-numeric:tabular-nums;text-align:right}
-.stale{opacity:.55}.stale:after{content:" stale";font-size:10px;color:var(--wa)}
-.spark{display:block;width:100%;height:44px;margin:6px 0 8px}
-.drv{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.drv em{font-style:normal;font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:2px 6px}
-.bars{display:grid;gap:7px}
-.br{display:grid;grid-template-columns:70px 1fr 34px;gap:8px;align-items:center;font-size:13px}
-.bar{height:8px;background:var(--bd);border-radius:4px;position:relative}
-.bar i{position:absolute;top:0;height:8px;border-radius:4px}
-.bar:after{content:"";position:absolute;left:50%;top:-2px;height:12px;width:1px;background:var(--mu)}
-.st{display:flex;flex-wrap:wrap;gap:6px}.st span{font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:2px 7px}
-.st .bad{color:var(--dn);border-color:var(--dn)}
-button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:4px 10px;cursor:pointer}
-</style></head><body><div class="w">
-<header><h1>Macro Terminal · Gold · Silver · Copper · Nifty</h1>
-<div class="mu sm"><span id="gen">loading…</span> <button id="rf">Refresh</button></div></header>
-<div id="banner"></div>
-<div class="strip" id="strip"></div>
-<div class="grid" id="grid"></div>
-<div class="card" style="margin-top:12px"><h2>Source health</h2><div class="st" id="st"></div>
-<p class="mu sm" id="notes" style="margin:10px 0 0"></p></div>
+html{-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-body);line-height:1.6;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);overflow-x:hidden}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+
+/* ---------- app shell ---------- */
+.app{display:flex;min-height:100vh}
+.sidebar{width:210px;flex:0 0 210px;background:var(--surface);border-right:1px solid var(--border);
+  padding:22px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;align-self:flex-start}
+.brand{font-family:var(--font-display);font-size:16px;font-weight:600;padding:0 10px 18px;letter-spacing:-.01em;color:var(--ink)}
+.brand .sub{display:block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:400;margin-top:4px}
+.navbtn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:7px;border:none;background:transparent;
+  color:var(--ink-soft);font-size:13.5px;font-weight:500;text-align:left;width:100%;transition:background .12s}
+.navbtn svg{flex:0 0 auto;opacity:.75}
+.navbtn:hover{background:var(--surface-2)}
+.navbtn.active{background:var(--accent-soft);color:var(--accent)}
+.navbtn.active svg{opacity:1}
+.navspacer{flex:1}
+.navfoot{padding:10px 12px;font-size:11px;color:var(--ink-faint);font-family:var(--font-mono)}
+.main{flex:1;min-width:0;max-width:100%}
+.view{display:none}
+.view.active{display:block}
+
+/* ================= DASHBOARD TAB (unchanged technical styling) ================= */
+#view-dashboard{font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--tx)}
+#view-dashboard .w{max-width:1180px;margin:0 auto;padding:22px 20px 40px}
+#view-dashboard header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+#view-dashboard h1{font-size:18px;margin:0}
+#view-dashboard .mu{color:var(--mu)}#view-dashboard .sm{font-size:12px}
+#view-dashboard .up{color:var(--up)}#view-dashboard .dn{color:var(--dn)}
+#view-dashboard .banner{border:1px solid var(--wa);color:var(--wa);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+#view-dashboard .strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px}
+#view-dashboard .chip{flex:0 0 auto;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:7px 11px;min-width:112px}
+#view-dashboard .chip b{display:block;font-size:11px;font-weight:500;color:var(--mu);white-space:nowrap}
+#view-dashboard .chip span{font-weight:600}#view-dashboard .chip i{font-style:normal;font-size:12px;margin-left:6px}
+#view-dashboard .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+#view-dashboard .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+#view-dashboard .card h2{font-size:13px;margin:0 0 8px;color:var(--mu);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+#view-dashboard .big{font-size:26px;font-weight:650;letter-spacing:-.5px}
+#view-dashboard .big small{font-size:12px;font-weight:400;color:var(--mu);margin-left:6px}
+#view-dashboard .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--bd);font-weight:600}
+#view-dashboard .tag.Bullish{color:var(--up);border-color:var(--up)}#view-dashboard .tag.Bearish{color:var(--dn);border-color:var(--dn)}
+#view-dashboard .row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--bd);font-size:13px}
+#view-dashboard .row:first-of-type{border-top:0}
+#view-dashboard .row .v{font-variant-numeric:tabular-nums;text-align:right}
+#view-dashboard .stale{opacity:.55}#view-dashboard .stale:after{content:" stale";font-size:10px;color:var(--wa)}
+#view-dashboard .spark{display:block;width:100%;height:44px;margin:6px 0 8px}
+#view-dashboard .drv{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+#view-dashboard .drv em{font-style:normal;font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:2px 6px}
+#view-dashboard .bars{display:grid;gap:7px}
+#view-dashboard .br{display:grid;grid-template-columns:70px 1fr 34px;gap:8px;align-items:center;font-size:13px}
+#view-dashboard .bar{height:8px;background:var(--bd);border-radius:4px;position:relative}
+#view-dashboard .bar i{position:absolute;top:0;height:8px;border-radius:4px}
+#view-dashboard .bar:after{content:"";position:absolute;left:50%;top:-2px;height:12px;width:1px;background:var(--mu)}
+#view-dashboard .st{display:flex;flex-wrap:wrap;gap:6px}#view-dashboard .st span{font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:2px 7px}
+#view-dashboard .st .bad{color:var(--dn);border-color:var(--dn)}
+#view-dashboard button{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:4px 10px}
+
+/* ================= EXPLAINER TAB ================= */
+.w900{max-width:900px;margin:0 auto;padding:40px 32px 80px}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+h1.page-title{font-family:var(--font-display);font-size:clamp(26px,4vw,34px);font-weight:500;margin:6px 0 10px;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--ink-soft);font-size:15px;max-width:60ch}
+.asof{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-faint);margin-top:10px}
+.exp section{margin:44px 0}
+.exp section > h2{font-family:var(--font-display);font-size:22px;font-weight:500;margin:0 0 6px;letter-spacing:-.01em}
+.exp section > .lede{color:var(--ink-soft);font-size:14.5px;margin:0 0 18px;max-width:65ch}
+.conditions{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:22px 26px;margin:24px 0 36px}
+.conditions .k{font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:0 0 10px;font-weight:600}
+.conditions p{margin:0 0 12px;font-size:16px}
+.conditions p:last-child{margin-bottom:0}
+.assets{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
+.asset{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:22px 24px;border-left:4px solid var(--c)}
+.asset.gold{--c:var(--gold)}.asset.silver{--c:var(--steel)}.asset.copper{--c:var(--oxide)}.asset.nifty{--c:var(--accent)}
+.asset-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px}
+.asset-head h3{font-family:var(--font-display);font-size:17px;font-weight:600;margin:0;color:var(--c)}
+.asset-head .unit{font-size:12px;color:var(--ink-faint)}
+.hero-row{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:10px 0 2px}
+.hero-num{font-family:var(--font-mono);font-size:28px;font-weight:600;letter-spacing:-.02em}
+.chg{font-family:var(--font-mono);font-size:14px}
+.chg.up{color:var(--good)}.chg.down{color:var(--critical)}
+.spark2{display:block;margin:10px 0 2px;overflow:visible}
+.verdict{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:5px;margin:8px 0 14px}
+.verdict.Bullish{background:var(--good-bg);color:var(--good)}
+.verdict.Bearish{background:var(--critical-bg);color:var(--critical)}
+.verdict.Mixed{background:var(--warning-bg);color:var(--warning)}
+.asset p{font-size:14.5px;margin:0 0 14px;color:var(--ink)}
+.exp-drivers{display:flex;flex-wrap:wrap;gap:6px}
+.drv-chip{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--border);border-radius:5px;padding:3px 8px;display:inline-flex;align-items:center;gap:5px}
+.drv-chip .dot{width:6px;height:6px;border-radius:50%}
+.drv-chip.up .dot{background:var(--good)}.drv-chip.down .dot{background:var(--critical)}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:16px 18px}
+.gcard h4{font-family:var(--font-display);font-size:14.5px;margin:0 0 4px;font-weight:600}
+.gcard .reading{font-family:var(--font-mono);font-size:19px;font-weight:600;margin:4px 0 8px}
+.gcard .reading .chg{margin-left:8px}
+.gcard p{font-size:13.3px;color:var(--ink-soft);margin:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:14px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:16px 18px}
+.stat h4{font-family:var(--font-display);font-size:14px;margin:0 0 2px;font-weight:600}
+.stat .meta{font-size:11.5px;color:var(--ink-faint);font-family:var(--font-mono)}
+.stat .reading{font-family:var(--font-mono);font-size:21px;font-weight:600;margin:8px 0 4px}
+.stat .sub-reading{font-size:12.5px;color:var(--ink-soft);font-family:var(--font-mono)}
+.stat p{font-size:13px;color:var(--ink-soft);margin:10px 0 0}
+.exp-events{border-top:1px solid var(--border)}
+.exp-event{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:13px 2px;border-bottom:1px solid var(--border)}
+.exp-event .label{font-size:14.5px}
+.exp-event .why{display:block;font-size:12.5px;color:var(--ink-faint);margin-top:2px}
+.exp-event .when{text-align:right;white-space:nowrap}
+.exp-event .date{font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);display:block}
+.exp-event .countdown{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)}
+.exp-movers{display:flex;flex-direction:column;gap:8px}
+.exp-mover{display:grid;grid-template-columns:140px 1fr 70px;align-items:center;gap:12px;font-size:13.5px}
+.exp-mover .bar-track{height:7px;background:var(--border);border-radius:4px;position:relative}
+.exp-mover .bar-track i{position:absolute;top:0;height:7px;border-radius:4px}
+.exp-mover .bar-track:after{content:"";position:absolute;left:50%;top:-2px;width:1px;height:11px;background:var(--ink-faint)}
+.exp-mover .val{font-family:var(--font-mono);text-align:right;font-weight:600}
+.exp-mover .val.up{color:var(--good)}.exp-mover .val.down{color:var(--critical)}
+.notes{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px}
+.notes ul{margin:0;padding-left:20px}
+.notes li{font-size:14px;margin-bottom:10px}
+.notes li:last-child{margin-bottom:0}
+.page-footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--border)}
+.page-footer p{font-size:12.5px;color:var(--ink-faint);max-width:70ch;margin:0 0 8px}
+
+/* ================= STORIES TAB ================= */
+.stories-wrap{display:flex;justify-content:center;padding-top:8px}
+.stage{position:relative;width:100%;max-width:400px;aspect-ratio:9/15;border-radius:16px;overflow:hidden;
+  background:var(--surface-2);border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.18);user-select:none}
+.progress-row{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:4px;z-index:5}
+.progress-seg{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35);overflow:hidden}
+:root:not([data-theme="dark"]) .progress-seg{background:rgba(0,0,0,.16)}
+.progress-seg i{display:block;height:100%;width:0%;background:#fff;border-radius:2px}
+:root:not([data-theme="dark"]) .progress-seg i{background:var(--ink)}
+.progress-seg.done i{width:100%!important}
+.slide{position:absolute;inset:0;padding:40px 26px 28px;display:none;flex-direction:column;justify-content:center;color:#fff;text-align:left}
+.slide.show{display:flex}
+.slide .eyebrow2{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-bottom:10px}
+.slide h3{font-family:var(--font-display);font-size:clamp(24px,6.6vw,30px);line-height:1.14;margin:0 0 14px;font-weight:600;text-wrap:balance}
+.slide .big-stat{font-family:var(--font-mono);font-size:clamp(38px,11vw,50px);font-weight:700;line-height:1;margin-bottom:14px;letter-spacing:-.02em}
+.slide p{font-size:14.5px;line-height:1.5;margin:0;opacity:.95;max-width:48ch}
+.slide .tag{display:inline-flex;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 10px;border-radius:5px;background:rgba(255,255,255,.18);margin-bottom:14px;align-self:flex-start}
+.slide.on-light{color:var(--ink)}
+.slide.on-light .tag{background:var(--surface)}
+.slide.on-light .eyebrow2{color:var(--ink-faint);opacity:1}
+.slide-bold{background:var(--sc)}
+.slide-neutral{background:var(--surface)}
+.tapzone{position:absolute;top:0;bottom:0;width:34%;z-index:4;cursor:pointer}
+.tapzone.left{left:0}.tapzone.right{right:0;width:66%}
+.slide-btns{display:flex;gap:10px;position:relative;z-index:6;pointer-events:auto;margin-top:6px}
+.slide-btns button{border-radius:7px;padding:10px 16px;font-weight:600;font-size:13px;border:none}
+.slide-btns .primary{background:#fff;color:var(--ink)}
+.slide-btns .secondary{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)}
+.stories-nav{display:flex;justify-content:center;gap:16px;margin-top:18px}
+.stories-nav button{background:var(--surface);border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600}
+.stories-nav button:disabled{opacity:.4;cursor:default}
+.stories-hint{text-align:center;font-size:12px;color:var(--ink-faint);margin-top:10px}
+
+/* ---------- mobile ---------- */
+@media (max-width:860px){
+  .app{flex-direction:column}
+  .sidebar{position:sticky;top:0;width:100%;height:auto;flex-direction:row;padding:10px 8px;
+    border-right:none;border-bottom:1px solid var(--border);overflow-x:auto;z-index:10}
+  .brand{display:none}
+  .navbtn{flex-direction:column;gap:4px;font-size:11px;padding:8px 14px;white-space:nowrap}
+  .navspacer{display:none}.navfoot{display:none}
+  .w900{padding:26px 18px 60px}
+}
+@media (max-width:480px){
+  .exp-mover{grid-template-columns:100px 1fr 56px}
+}
+</style></head><body>
+
+<div class="app">
+  <nav class="sidebar">
+    <div class="brand">Macro Terminal<span class="sub">Live</span></div>
+    <button class="navbtn active" data-view="dashboard">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="navbtn" data-view="explainer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Explainer
+    </button>
+    <button class="navbtn" data-view="stories">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10,8.5 16,12 10,15.5" fill="currentColor" stroke="none"/></svg>
+      Stories
+    </button>
+    <div class="navspacer"></div>
+    <div class="navfoot" id="navfoot">loading…</div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ============ DASHBOARD VIEW (unchanged technical dashboard) ============ -->
+    <div class="view active" id="view-dashboard">
+      <div class="w">
+        <header><h1>Macro Terminal · Gold · Silver · Copper · Nifty</h1>
+        <div class="mu sm"><span id="gen">loading…</span> <button id="rf">Refresh</button></div></header>
+        <div id="banner"></div>
+        <div class="strip" id="strip"></div>
+        <div class="grid" id="grid"></div>
+        <div class="card" style="margin-top:12px"><h2>Source health</h2><div class="st" id="st"></div>
+        <p class="mu sm" id="notes" style="margin:10px 0 0"></p></div>
+      </div>
+    </div>
+
+    <!-- ============ EXPLAINER VIEW ============ -->
+    <div class="view" id="view-explainer"><div class="w900 exp">
+      <div class="eyebrow">Macro Terminal — plain English edition</div>
+      <h1 class="page-title">What today's numbers actually mean</h1>
+      <p class="sub">A walkthrough of the same data the Dashboard tracks for MCX gold, silver, copper and Nifty — translated out of jargon, with the "so what" attached to each figure. Regenerated automatically every 30 minutes.</p>
+      <div class="asof" id="exp-asof"></div>
+      <div class="conditions" id="exp-conditions"></div>
+      <section>
+        <h2>Gold, silver, copper &amp; Nifty</h2>
+        <p class="lede">Each card: the Indian price the dashboard estimates, the forces behind that number, and the tilt — a simple scorecard, not a forecast, of how many tracked drivers currently point which way.</p>
+        <div class="assets" id="exp-assets"></div>
+      </section>
+      <section>
+        <h2>The field guide</h2>
+        <p class="lede">The handful of indicators that do the actual driving above — what each one is, today's reading, and why it moves the four assets.</p>
+        <div class="guide" id="exp-guide"></div>
+      </section>
+      <section>
+        <h2>Global releases, decoded</h2>
+        <p class="lede">The data every rate decision above actually responds to.</p>
+        <div class="stats" id="exp-stats"></div>
+      </section>
+      <section>
+        <h2>What's coming up</h2>
+        <p class="lede">Every one of these can move the numbers above the moment it prints.</p>
+        <div class="exp-events" id="exp-events"></div>
+      </section>
+      <section>
+        <h2>Today's biggest movers</h2>
+        <p class="lede">Every tracked price, ranked by the size of its move — regardless of which asset it belongs to.</p>
+        <div class="exp-movers" id="exp-movers"></div>
+      </section>
+      <section>
+        <h2>Worth doing</h2>
+        <p class="lede">Small upkeep items that would keep this sharper — not investment advice.</p>
+        <div class="notes" id="exp-notes"></div>
+      </section>
+      <div class="page-footer">
+        <p><strong>Fair value ≠ traded price.</strong> The gold/silver/copper rupee figures above are estimates (global price × exchange rate × import duty + a premium) — not the live MCX exchange price, which also reflects local demand, taxes beyond duty, and speculation.</p>
+        <p><strong>The tilt score is a rule-of-thumb scorecard, not a prediction.</strong> It counts how many tracked drivers currently point bullish vs. bearish for each asset, weighted by how much that driver usually matters. Treat it as a quick context read — not financial advice.</p>
+      </div>
+    </div></div>
+
+    <!-- ============ STORIES VIEW ============ -->
+    <div class="view" id="view-stories"><div class="w900">
+      <div class="eyebrow">Macro Terminal</div>
+      <h1 class="page-title">Today, in stories</h1>
+      <p class="sub">Tap through — same data as the Explainer, told in 60 seconds. Tap the right side to go forward, left side to go back.</p>
+      <div class="stories-wrap">
+        <div class="stage" id="stage">
+          <div class="progress-row" id="progress-row"></div>
+          <div class="tapzone left" id="tap-left"></div>
+          <div class="tapzone right" id="tap-right"></div>
+        </div>
+      </div>
+      <div class="stories-nav">
+        <button id="story-prev">◀ Back</button>
+        <button id="story-replay">↺ Replay</button>
+        <button id="story-next">Next ▶</button>
+      </div>
+      <p class="stories-hint">Auto-advances every 5s · tap/click to control manually · pauses on hover</p>
+    </div></div>
+
+  </main>
 </div>
+
 <script>
 const $=id=>document.getElementById(id);
 const nf=(n,d=2)=>n==null||isNaN(n)?"–":Number(n).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
 const cls=n=>n>0?"up":n<0?"dn":"mu";
 const sg=n=>n>0?"+":"";
+
+/* ================= sidebar nav ================= */
+const views=document.querySelectorAll('.view');
+const navbtns=document.querySelectorAll('.navbtn');
+navbtns.forEach(b=>b.addEventListener('click',()=>{
+  navbtns.forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  views.forEach(v=>v.classList.remove('active'));
+  $('view-'+b.dataset.view).classList.add('active');
+  if(b.dataset.view==='stories') storiesEnter(); else storiesPause();
+}));
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-goto]');
+  if(t){ document.querySelector(`.navbtn[data-view="${t.dataset.goto}"]`).click(); }
+});
+
+/* ================= DASHBOARD (unchanged logic) ================= */
 function spark(s,color){
   if(!s||s.length<2)return"";
   const v=s.map(p=>p[1]),mn=Math.min(...v),mx=Math.max(...v),r=mx-mn||1;
@@ -143,7 +438,7 @@ function recentCard(d){
   h+=mv.slice(0,6).map(m=>`<div class="row${m.stale?" stale":""}"><span>${m.label}</span><span class="v ${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</span></div>`).join("");
   return h+`</div>`;
 }
-function render(d){
+function renderDashboard(d){
   const M=d.market,F=d.fred,N=d.nse||{};
   $("gen").textContent="Updated "+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
   const bad=Object.values(d.status).filter(s=>!s.ok).length;
@@ -191,12 +486,232 @@ function render(d){
   $("st").innerHTML=Object.entries(d.status).map(([k,v])=>`<span class="${v.ok?"":"bad"}" title="${v.ok?"":v.error}">${k}${v.ok?"":" ✕"}</span>`).join("");
   $("notes").textContent=d.notes.mcx_note+" Duties used: gold "+d.notes.duty.gold*100+"%, silver "+d.notes.duty.silver*100+"%, copper "+d.notes.duty.copper*100+"% (edit config.json).";
 }
+
+/* ================= EXPLAINER (live, template-driven) ================= */
+function fmtPct(x){return x==null?"–":`${sg(x)}${nf(x,2)}%`}
+function chgSpan(x,abs){const c=abs?`${sg(x)}${nf(x,2)}`:fmtPct(x);return `<span class="chg ${cls(x)}">${x>=0?"▲":"▼"} ${nf(Math.abs(x),2)}${abs?"":"%"}</span>`}
+function sparkline(series,color){
+  if(!series||series.length<2)return"";
+  const s=series.slice(-24),v=s.map(p=>p[1]),mn=Math.min(...v),mx=Math.max(...v),r=mx-mn||1,w=140,h=40,pad=3;
+  const pts=v.map((x,i)=>`${(pad+(i/(v.length-1))*(w-2*pad)).toFixed(1)},${(pad+(1-(x-mn)/r)*(h-2*pad)).toFixed(1)}`).join(" ");
+  const last=pts.split(" ").pop().split(",");
+  return `<svg class="spark2" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><polyline fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/><circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${color}"/></svg>`;
+}
+function driverChip(dr){
+  return `<span class="drv-chip ${dr.effect>0?"up":"down"}"><span class="dot"></span>${dr.driver} ${sg(dr.effect)}${dr.effect}</span>`;
+}
+const ASSET_META={
+  gold:{title:"Gold",unit:"₹ per 10g, estimated",color:"var(--gold)"},
+  silver:{title:"Silver",unit:"₹ per kg, estimated",color:"var(--steel)"},
+  copper:{title:"Copper",unit:"₹ per kg, estimated",color:"var(--oxide)"},
+  nifty:{title:"Nifty futures",unit:"index level",color:"var(--accent)"},
+};
+function assetCard(key,d){
+  const meta=ASSET_META[key],m=key==="nifty"?d.market.nifty:d.mcx[key],t=d.tilt[key],nar=(d.narrative.assets||{})[key];
+  if(!m||!t)return"";
+  const heroVal=key==="nifty"?nf(m.last,0):"₹"+nf(m.last,0);
+  return `<div class="asset ${key}">
+    <div class="asset-head"><h3>${meta.title}</h3><span class="unit">${meta.unit}</span></div>
+    <div class="hero-row"><span class="hero-num">${heroVal}</span>${chgSpan(m.pct)}</div>
+    ${sparkline(m.series,meta.color)}
+    <div class="verdict ${t.label}">${t.label} · tilt ${sg(t.score)}${t.score}</div>
+    <p>${nar?nar.paragraph:""}</p>
+    <div class="exp-drivers">${(t.drivers||[]).slice(0,3).map(driverChip).join("")}</div>
+  </div>`;
+}
+const GLOSSARY=[
+  {title:"US real yield",def:"What US government bonds pay <em>after</em> subtracting expected inflation. Gold earns no interest, so when this falls, gold looks relatively more attractive to hold — and vice versa. The single biggest lever on gold in the model.",
+   read:d=>d.fred.real10y?`${nf(d.fred.real10y.last,2)}% ${chgSpan(d.fred.real10y.chg,true)}`:null},
+  {title:"USD/INR (the rupee)",def:"Rupees per dollar — a falling number means the rupee is <em>strengthening</em>. Since MCX fair value = global dollar price × this rate, a weaker rupee alone makes gold/silver/copper costlier in India even if nothing else moves.",
+   read:d=>d.market.usdinr?`${nf(d.market.usdinr.last,2)} ${chgSpan(d.market.usdinr.pct)}`:null},
+  {title:"US VIX (\"fear gauge\")",def:"Wall Street's expected 30-day volatility, priced from options. Above ~30 is genuinely elevated. Rising fear usually helps gold (safe haven) but can hit everything at once if it's a cash scramble.",
+   read:d=>d.market.usvix?`${nf(d.market.usvix.last,2)} ${chgSpan(d.market.usvix.pct)}`:null},
+  {title:"India VIX",def:"Same idea as US VIX, for Nifty — expected 30-day volatility in the Indian market.",
+   read:d=>d.market.indiavix?`${nf(d.market.indiavix.last,2)} ${chgSpan(d.market.indiavix.pct)}`:null},
+  {title:"GIFT Nifty",def:"Nifty futures traded out of GIFT City, Gujarat — nearly 21 hours a day, including before and after India's own market hours. Traders use it as an early read on which way Nifty is likely to open.",
+   read:d=>d.market.gift_nifty?`${nf(d.market.gift_nifty.last,0)} ${chgSpan(d.market.gift_nifty.pct)}`:null},
+  {title:"FII / DII flows",def:"Foreign (FII) vs. domestic Indian (DII) institutions' net buying or selling of Indian stocks on a given day.",
+   read:d=>{const fd=d.nse&&d.nse.fii_dii;if(!fd)return null;return `FII ${sg(fd.fii.net)}${nf(fd.fii.net,0)}cr <span class="mu" style="color:var(--ink-faint);font-size:12px">· DII ${sg(fd.dii.net)}${nf(fd.dii.net,0)}cr</span>`;}},
+  {title:"Brent crude oil",def:"The global oil benchmark. India imports most of its oil, so cheaper Brent eases the trade deficit and the pressure on the rupee.",
+   read:d=>d.market.brent?`$${nf(d.market.brent.last,2)} ${chgSpan(d.market.brent.pct)}`:null},
+  {title:"LME copper",def:"The London Metal Exchange's cash-settlement price — the actual global benchmark that physical copper buyers and sellers reference, distinct from COMEX futures.",
+   read:d=>d.market.lme_copper?`$${nf(d.market.lme_copper.last,0)} ${chgSpan(d.market.lme_copper.pct)}`:null},
+  {title:"US bond yields &amp; the curve",def:"What the US government pays to borrow for that many years. The 10Y−2Y gap is a classic recession watch-signal: negative has historically preceded US recessions.",
+   read:d=>{const y=d.yields||{};if(!y.us2y)return null;return `2Y ${nf(y.us2y.last,2)}% · 10Y ${nf(y.us10y?y.us10y.last:null,2)}% · 30Y ${nf(y.us30y?y.us30y.last:null,2)}%`;}},
+  {title:"India 10Y G-sec",def:"India's own 10-year government borrowing cost, and the benchmark Indian interest rates are built on.",
+   read:d=>{const in10=d.yields&&d.yields.india10y;if(!in10)return null;return `~${nf(in10.value,2)}% <span class="mu" style="color:var(--ink-faint);font-size:12px">${in10.spread_us10y!=null?sg(in10.spread_us10y)+nf(in10.spread_us10y,2)+" vs US":""}</span>`;}},
+  {title:"Fed funds rate",def:"The US central bank's target for overnight lending — effectively \"the price of money\" in America. Higher rates make the dollar and bonds more attractive next to non-yielding gold.",
+   read:d=>{const fed=d.rates&&d.rates.fed;if(!fed||fed.target_low==null)return null;return `${nf(fed.target_low,2)}–${nf(fed.target_high,2)}% <span class="mu" style="color:var(--ink-faint);font-size:12px">EFFR ${nf(fed.effr,2)}%</span>`;}},
+  {title:"RBI repo rate",def:"India's equivalent \"price of money\" — what the RBI charges banks.",
+   read:d=>{const rbi=d.rates&&d.rates.rbi;if(!rbi||rbi.value==null)return null;return `${nf(rbi.value,2)}% <span class="mu" style="color:var(--ink-faint);font-size:12px">since ${rbi.as_of}</span>`;}},
+];
+function gcard(title,reading,def){
+  return `<div class="gcard"><h4>${title}</h4><div class="reading">${reading||'<span class="mu" style="color:var(--ink-faint)">n/a</span>'}</div><p>${def}</p></div>`;
+}
+function statTile(title,meta,reading,sub,series,def,color){
+  return `<div class="stat"><h4>${title}</h4><span class="meta">${meta}</span><div class="reading">${reading}</div>
+    ${sub?`<div class="sub-reading">${sub}</div>`:""}${sparkline(series,color||"var(--ink-soft)")}<p>${def}</p></div>`;
+}
+const EVENT_WHY={
+  fo_weekly:"Options/futures settle — volatility often picks up around this date.",
+  fo_monthly:"Options/futures settle — volatility often picks up around this date.",
+  us_pce:"The Fed's preferred inflation gauge — directly shapes rate-cut odds.",
+  us_gdp:"Next read on whether growth is accelerating or slowing.",
+  india_iip:"Monthly industrial output — a growth pulse check.",
+  india_gdp:"Quarterly growth print.",
+  china_pmi:"Next read on Chinese factory demand — matters most for copper.",
+  rbi:"Rate decision — see Rate expectations for what's priced in.",
+  us_jobs:"The next payrolls/unemployment/wages print.",
+  fomc:"Rate decision — see Rate expectations for what's priced in.",
+  us_cpi:"The headline inflation print markets watch most closely.",
+  india_cpi:"Will confirm or walk back the RBI-ceiling story.",
+};
+function renderExplainer(d){
+  const nar=d.narrative||{overview:[],assets:{},worth_doing:[]};
+  $("exp-asof").textContent="Live · updated "+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"})+(d.demo?" · DEMO DATA":"");
+  $("exp-conditions").innerHTML=`<p class="k">Today in one breath</p>`+nar.overview.map(p=>`<p>${p}</p>`).join("");
+  $("exp-assets").innerHTML=["gold","silver","copper","nifty"].map(k=>assetCard(k,d)).join("");
+  $("exp-guide").innerHTML=GLOSSARY.map(g=>gcard(g.title,g.read(d),g.def)).join("");
+
+  const rl=d.releases||{},c=rl.us_cpi,j=rl.us_jobs,p=rl.us_pce,g=rl.us_gdp,ic=rl.india_cpi,cp=rl.china_pmi;
+  let stats="";
+  if(c)stats+=statTile("US CPI",`${c.period} · headline inflation`,`${nf(c.last,1)}% ${chgSpan(c.last-c.prev,true)}`,`Core (ex food &amp; energy): ${nf(c.core_yoy,1)}% YoY`,c.series,"How much a typical basket of goods costs vs. a year ago.");
+  if(j)stats+=statTile("US jobs report",j.period,`${sg(j.last)}${nf(j.last,0)}K <span class="chg up" style="font-size:13px">jobs added</span>`,`Unemployment ${nf(j.unemployment,1)}% (was ${nf(j.unemployment_prev,1)}%) · wages ${sg(j.avg_hourly_earn_yoy)}${nf(j.avg_hourly_earn_yoy,1)}% YoY`,null,"More jobs and lower unemployment reads as a hot labour market — the kind that nudges the Fed toward \"hike,\" not \"cut.\"");
+  if(p)stats+=statTile("US PCE — the Fed's own gauge",p.period,`${nf(p.last,1)}% ${chgSpan(p.last-p.prev,true)}`,`Core PCE: ${nf(p.core_yoy,1)}% YoY`,p.series,"This is the number the Fed actually targets (vs. a 2% goal) — not CPI.");
+  if(g)stats+=statTile("US GDP growth",`${g.period}, annualized pace`,`${sg(g.last)}${nf(g.last,1)}% ${chgSpan(g.last-g.prev,true)}`,null,null,"The economy's total output growth.");
+  if(ic&&ic.actual!=null)stats+=statTile("India CPI",ic.as_of,`${nf(ic.actual,2)}% ${chgSpan(ic.actual-ic.previous,true)}`,null,null,"India's inflation gauge, watched by the RBI the same way the Fed watches US CPI/PCE.");
+  if(cp)stats+=statTile("China Manufacturing PMI",cp.period||cp.asof,`${nf(cp.last,1)} ${chgSpan(cp.chg,true)}`,null,null,"Above 50 means expanding, below means contracting — a soft read is a signal for global copper demand.");
+  $("exp-stats").innerHTML=stats;
+
+  $("exp-events").innerHTML=(d.events||[]).slice(0,16).map(e=>
+    `<div class="exp-event"><div><span class="label">${e.label}</span><span class="why">${EVENT_WHY[e.id]||""}</span></div>
+     <div class="when"><span class="date">${e.date}</span><span class="countdown">${fmtDays(e.days)}</span></div></div>`).join("");
+
+  const mv=d.movers||[],mx=mv.length?Math.max(...mv.map(m=>Math.abs(m.pct))):1;
+  $("exp-movers").innerHTML=mv.map(m=>{
+    const w=(Math.abs(m.pct)/mx*48).toFixed(1),side=m.pct>=0?`left:50%;width:${w}%`:`left:calc(50% - ${w}%);width:${w}%`;
+    return `<div class="exp-mover"><span class="name">${m.label}</span><div class="bar-track"><i style="${side};background:var(${m.pct>=0?"--good":"--critical"})"></i></div><span class="val ${cls(m.pct)}">${sg(m.pct)}${nf(m.pct,1)}%</span></div>`;
+  }).join("");
+
+  $("exp-notes").innerHTML=`<ul>${(nar.worth_doing||[]).map(n=>`<li>${n}</li>`).join("")}</ul>`;
+}
+
+/* ================= STORIES (live slides + same engine mechanics) ================= */
+function buildSlides(d){
+  const nar=d.narrative||{overview:[],assets:{}};
+  const S=[];
+  S.push({bg:"bold",c:"var(--accent)",eyebrow:"Macro Terminal",headline:"Your markets, in 60 seconds",
+    text:`Gold, silver, copper &amp; Nifty — ${new Date(d.generated).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}. Tap anywhere to begin.`});
+  S.push({bg:"neutral",tag:"The big picture",headline:"",text:nar.overview[0]||""});
+  const assetColor={gold:"var(--gold)",silver:"var(--steel)",copper:"var(--oxide)",nifty:"var(--accent)"};
+  ["gold","silver","copper","nifty"].forEach(k=>{
+    const m=k==="nifty"?d.market.nifty:d.mcx[k],a=nar.assets[k];
+    if(!m||!a)return;
+    S.push({bg:"bold",c:assetColor[k],eyebrow:ASSET_META[k].title,bigStat:`${m.pct>=0?"▲":"▼"}${nf(Math.abs(m.pct),1)}%`,text:a.paragraph});
+  });
+  const fed=(d.rates||{}).fed||{},rbi=(d.rates||{}).rbi||{};
+  S.push({bg:"neutral",tag:"Rates",headline:"Where rates are headed",
+    text:`${fed.label?`Fed funds futures are ${fed.label}.`:""} ${rbi.expected_move?`The RBI is expected to ${rbi.expected_move} at its next meeting.`:""}`});
+  S.push({bg:"neutral",tag:"Inflation &amp; growth",headline:"",text:nar.overview[1]||""});
+  const mv=(d.movers||[])[0];
+  if(mv)S.push({bg:"neutral",tag:"Biggest mover",headline:`${mv.label}: ${sg(mv.pct)}${nf(mv.pct,1)}%`,
+    text:"The single largest move anywhere the dashboard tracks today, in either direction."});
+  const ev=(d.events||[]).slice(0,4);
+  if(ev.length)S.push({bg:"neutral",tag:"Coming up",headline:"Mark the calendar",
+    text:ev.map(e=>`${e.label} ${fmtDays(e.days)}`).join(" · ")});
+  S.push({bg:"bold",c:"var(--accent)",eyebrow:"That's the briefing",headline:"Want the full detail?",
+    text:"The Explainer tab has the complete breakdown, driver by driver.",
+    buttons:[{label:"Open Explainer",goto:"explainer",primary:true},{label:"Open Dashboard",goto:"dashboard"}]});
+  return S;
+}
+function slideHTML(s,i){
+  const cls_=s.bg==="bold"?"slide-bold":"slide-neutral",onLight=s.bg==="neutral"?" on-light":"";
+  const style=s.bg==="bold"?`style="--sc:${s.c}"`:"";
+  let inner="";
+  if(s.eyebrow)inner+=`<div class="eyebrow2">${s.eyebrow}</div>`;
+  if(s.tag)inner+=`<div class="tag">${s.tag}</div>`;
+  if(s.bigStat)inner+=`<div class="big-stat">${s.bigStat}</div>`;
+  if(s.headline)inner+=`<h3>${s.headline}</h3>`;
+  if(s.text)inner+=`<p>${s.text}</p>`;
+  if(s.buttons)inner+=`<div class="slide-btns">${s.buttons.map(b=>`<button class="${b.primary?"primary":"secondary"}" data-goto="${b.goto}">${b.label}</button>`).join("")}</div>`;
+  return `<div class="slide ${cls_}${onLight}" ${style} data-i="${i}">${inner}</div>`;
+}
+let slides=[],segs=[],cur=0,timer=null,N=0;
+const DURATION=5000;
+const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function mountStories(d){
+  const stage=$("stage");
+  const S=buildSlides(d);
+  N=S.length;
+  stage.querySelectorAll('.slide').forEach(e=>e.remove());
+  stage.insertAdjacentHTML('beforeend',S.map(slideHTML).join(""));
+  slides=[...stage.querySelectorAll('.slide')];
+  const pr=$("progress-row"); pr.innerHTML="";
+  for(let i=0;i<N;i++){const seg=document.createElement('div');seg.className='progress-seg';seg.innerHTML='<i></i>';
+    seg.addEventListener('click',()=>goTo(i));pr.appendChild(seg);}
+  segs=[...pr.children];
+  cur=0; renderStoryState();
+}
+function renderStoryState(){
+  slides.forEach((s,i)=>s.classList.toggle('show',i===cur));
+  segs.forEach((s,i)=>{s.classList.toggle('done',i<cur);
+    const bar=s.querySelector('i');
+    if(i<cur)bar.style.width='100%'; else bar.style.width='0%';
+  });
+  $("story-prev").disabled=cur===0;
+  $("story-next").disabled=cur===N-1;
+  const hasButtons=slides[cur]&&slides[cur].querySelector('button')!==null;
+  $("tap-left").style.pointerEvents=hasButtons?'none':'auto';
+  $("tap-right").style.pointerEvents=hasButtons?'none':'auto';
+}
+function goTo(i){cur=Math.max(0,Math.min(N-1,i));renderStoryState();startTimer();}
+function storyNext(){if(cur<N-1)goTo(cur+1);else stopTimer();}
+function storyPrev(){goTo(cur-1);}
+function startTimer(){
+  stopTimer();
+  if(reduceMotion||cur===N-1||!N)return;
+  const bar=segs[cur].querySelector('i');
+  bar.style.transition='none';bar.style.width='0%';
+  requestAnimationFrame(()=>{bar.style.transition=`width ${DURATION}ms linear`;bar.style.width='100%';});
+  timer=setTimeout(storyNext,DURATION);
+}
+function stopTimer(){clearTimeout(timer);}
+function storiesEnter(){if(N)startTimer();}
+function storiesPause(){stopTimer();}
+$("tap-left").addEventListener('click',storyPrev);
+$("tap-right").addEventListener('click',storyNext);
+$("story-prev").addEventListener('click',storyPrev);
+$("story-next").addEventListener('click',storyNext);
+$("story-replay").addEventListener('click',()=>goTo(0));
+$("stage").addEventListener('mouseenter',stopTimer);
+$("stage").addEventListener('mouseleave',()=>{if($("view-stories").classList.contains('active'))startTimer();});
+let touchX=null;
+$("stage").addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;stopTimer();},{passive:true});
+$("stage").addEventListener('touchend',e=>{
+  if(touchX===null)return;
+  const dx=e.changedTouches[0].clientX-touchX;
+  if(dx>40)storyPrev();else if(dx<-40)storyNext();else startTimer();
+  touchX=null;
+},{passive:true});
+document.addEventListener('keydown',e=>{
+  if(!$("view-stories").classList.contains('active'))return;
+  if(e.key==='ArrowRight')storyNext();
+  if(e.key==='ArrowLeft')storyPrev();
+});
+
+/* ================= load ================= */
 async function load(){
   try{
     const r=await fetch("data.json?t="+Date.now());
     if(!r.ok)throw new Error(r.status);
-    render(await r.json());
-  }catch(e){$("gen").textContent="No data yet ("+e.message+"). Run the data job first."}
+    const d=await r.json();
+    renderDashboard(d);
+    renderExplainer(d);
+    mountStories(d);
+    $("navfoot").innerHTML="as of<br>"+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
+    if($("view-stories").classList.contains('active'))startTimer();
+  }catch(e){$("gen").textContent="No data yet ("+e.message+"). Run the data job first.";}
 }
 $("rf").onclick=load;load();setInterval(load,300000);
-</script></body></html>
+</script>
+</body></html>

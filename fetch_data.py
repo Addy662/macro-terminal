@@ -75,6 +75,24 @@ def guarded(name, fn, prev_val):
         return prev_val
 
 
+def guarded_throttled(name, fn, prev_val, hours):
+    """Like guarded(), but skips calling fn() if prev_val was fetched within the last `hours` -
+    for sources with a daily request quota (e.g. BLS's 25/day unregistered) where the underlying
+    data only changes once a month anyway, so refetching every 30 min just burns the quota."""
+    ts = prev_val.get("_fetched_at") if isinstance(prev_val, dict) else None
+    if ts:
+        try:
+            if (NOW - dt.datetime.fromisoformat(ts)).total_seconds() < hours * 3600:
+                STATUS[name] = {"ok": True}
+                return prev_val
+        except ValueError:
+            pass
+    v = guarded(name, fn, prev_val)
+    if isinstance(v, dict) and STATUS[name]["ok"]:
+        v = dict(v, _fetched_at=NOW.isoformat(timespec="seconds"))
+    return v
+
+
 def lookup(m, keys, d):
     i = bisect.bisect_right(keys, d)
     return m[keys[i - 1]] if i else None
@@ -552,6 +570,142 @@ def log_release(history, rid, label, rel, snapshot):
     return (history + [entry])[-20:]
 
 
+# ---------- plain-English narrative (rule-based, regenerated every run) ----------
+DRIVER_EVENT = {
+    "dxy": ("the dollar strengthened broadly", "the dollar weakened broadly"),
+    "usdinr": ("the rupee weakened", "the rupee strengthened"),
+    "real10y": ("US real yields rose", "US real yields fell"),
+    "usvix": ("Wall Street's fear gauge jumped", "Wall Street's fear gauge eased"),
+    "indiavix": ("India's fear gauge rose", "India's fear gauge eased"),
+    "brent": ("oil prices rose", "oil prices fell"),
+    "copper": ("copper itself rallied", "copper itself fell"),
+    "es": ("US equity futures rose", "US equity futures fell"),
+    "usdcny": ("the yuan weakened", "the yuan firmed"),
+    "fii_flow": ("foreign investors bought Indian stocks", "foreign investors sold Indian stocks"),
+}
+VERDICT_CLOSER = {"Bullish": "Every major driver lined up the same way today.",
+                  "Bearish": "Every major driver lined up the same way today.",
+                  "Mixed": "Drivers pulled in different directions, so the net read is a wash."}
+ASSET_LABEL = {"gold": "Gold", "silver": "Silver", "copper": "Copper", "nifty": "Nifty"}
+LABEL_TO_KEY = {v: k for k, v in LABEL.items()}
+
+
+def fmt_pct(x):
+    return f"{'+' if x >= 0 else ''}{round(x, 2)}%"
+
+
+def driver_clause(d):
+    event = DRIVER_EVENT.get(LABEL_TO_KEY.get(d["driver"]))
+    phrase = event[0 if d["chg"] >= 0 else 1] if event else d["driver"]
+    return f"{phrase} ({'tailwind' if d['effect'] > 0 else 'headwind'})"
+
+
+def drivers_sentence(drivers):
+    if not drivers:
+        return "No single driver crossed its usual threshold today."
+    clauses = [driver_clause(d) for d in drivers[:3]]
+    joined = clauses[0] if len(clauses) == 1 else ", ".join(clauses[:-1]) + ", and " + clauses[-1]
+    return f"Today's main drivers: {joined}."
+
+
+def asset_paragraph(key, mcx_entry, market, tilt_entry):
+    label = ASSET_LABEL[key]
+    lead = extra = ""
+    if key in ("gold", "silver", "copper") and mcx_entry:
+        lead = f"{label} {'rose' if mcx_entry['pct'] >= 0 else 'fell'} {abs(mcx_entry['pct']):.2f}% in rupee terms today"
+        comex = market.get(key)
+        if comex:
+            lead += f", largely tracking a {fmt_pct(comex['pct'])} move in the global dollar price"
+        lead += "."
+    elif key == "nifty" and "nifty" in market:
+        m = market["nifty"]
+        lead = f"Nifty {'rose' if m['pct'] >= 0 else 'fell'} {abs(m['pct']):.2f}% to {m['last']:,.0f} today."
+    if key == "copper" and "lme_copper" in market:
+        lc = market["lme_copper"]
+        extra = f" LME's global benchmark confirms it: ${lc['last']:,.0f}/tonne ({fmt_pct(lc['pct'])})."
+    if key == "nifty" and "gift_nifty" in market and "nifty" in market:
+        gn = market["gift_nifty"]
+        same_way = (gn["pct"] >= 0) == (market["nifty"]["pct"] >= 0)
+        extra = (f" GIFT Nifty was already {'up' if gn['pct'] >= 0 else 'down'} {abs(gn['pct']):.2f}% before the "
+                f"local session, pointing the same way." if same_way else
+                f" GIFT Nifty, however, was pointing the other way before the local session ({fmt_pct(gn['pct'])}).")
+    drivers = drivers_sentence(tilt_entry["drivers"])
+    closer = VERDICT_CLOSER[tilt_entry["label"]]
+    return f"{lead}{extra} {drivers} {closer}"
+
+
+def overview_paragraphs(market, mcx, tilt_, rates, releases, movers_list):
+    signs = {k: mcx[k]["pct"] >= 0 for k in ("gold", "silver", "copper") if k in mcx}
+    if "nifty" in market:
+        signs["nifty"] = market["nifty"]["pct"] >= 0
+    pos = [k for k, v in signs.items() if v]
+    neg = [k for k, v in signs.items() if not v]
+    vix_up = market.get("usvix", {}).get("pct", 0) > 0
+    metals_neg = [k for k in neg if k != "nifty"]
+
+    if len(metals_neg) >= 2 and "nifty" in pos:
+        fear = "Wall Street's fear gauge jumped" if vix_up else "volatility rose"
+        p1 = (f"It's a risk-off day gone two different ways: {', '.join(ASSET_LABEL[k] for k in metals_neg)} "
+             f"all fell as {fear}, but Nifty bucked the trend and rose instead.")
+    elif len(metals_neg) >= 2 and "nifty" in neg:
+        p1 = "It's a clean risk-off day: metals and Nifty fell together as fear gauges rose."
+    elif len(pos) >= 3:
+        p1 = "Risk appetite was broadly positive today: metals and Nifty mostly rose together."
+    else:
+        p1 = "It's a mixed day with no single direction across gold, silver, copper and Nifty."
+    if movers_list:
+        top = movers_list[0]
+        p1 += f" The single biggest move anywhere on the board: {top['label']} ({fmt_pct(top['pct'])})."
+
+    clauses = []
+    fed = rates.get("fed") or {}
+    if fed.get("label"):
+        clauses.append(f"Fed funds futures are {fed['label']}")
+    rbi = rates.get("rbi") or {}
+    if rbi.get("expected_move"):
+        clauses.append(f"the RBI is expected to {rbi['expected_move']} at its next meeting")
+    pce = releases.get("us_pce") or {}
+    if pce.get("core_yoy", 0) > 2.2:
+        clauses.append(f"US core PCE is running at {round(pce['core_yoy'], 1)}%, still above the Fed's 2% target")
+    icpi = releases.get("india_cpi") or {}
+    if (icpi.get("actual") or 0) > 6:
+        clauses.append("India's CPI has broken above the RBI's 6% ceiling")
+    china = releases.get("china_pmi") or {}
+    if china.get("last", 100) < 50:
+        clauses.append(f"China's factory PMI has slipped into contraction at {china['last']}")
+    p2 = ("; ".join(clauses) + ".") if clauses else "No major rate or inflation signal stands out today."
+    p2 = p2[0].upper() + p2[1:]
+    return [p1, p2]
+
+
+def worth_doing_notes(events, consensus, manual):
+    notes = []
+    for e in events:
+        if e["id"] in ("us_cpi", "us_jobs", "us_pce", "us_gdp") and e["days"] <= 14 and consensus.get(e["id"]) is None:
+            notes.append(f"No consensus estimate set for {e['label']} ({e['date']}) - add one in manual.json "
+                         "before it prints so the dashboard can show a surprise.")
+    rbi_event = next((e for e in events if e["id"] == "rbi"), None)
+    if rbi_event and rbi_event["days"] <= 10:
+        notes.append(f"RBI decision is in {rbi_event['days']} days - re-check manual.json's \"expected_move\" "
+                     "is still accurate.")
+    g = manual.get("india_gsec10y") or {}
+    if g.get("as_of"):
+        age = (NOW.date() - dt.date.fromisoformat(g["as_of"])).days
+        if age > 10:
+            notes.append(f"India 10Y G-sec figure is {age} days old - consider refreshing it in manual.json.")
+    return notes or ["Nothing urgent - manual fields and consensus estimates all look current."]
+
+
+def narrative(market, mcx, tilt_, rates, releases, events, movers_list):
+    out = {"overview": overview_paragraphs(market, mcx, tilt_, rates, releases, movers_list), "assets": {}}
+    for key in ("gold", "silver", "copper", "nifty"):
+        if key in tilt_:
+            out["assets"][key] = {"verdict": tilt_[key]["label"], "score": tilt_[key]["score"],
+                                  "paragraph": asset_paragraph(key, mcx.get(key), market, tilt_[key])}
+    out["worth_doing"] = worth_doing_notes(events, MANUAL.get("consensus", {}), MANUAL)
+    return out
+
+
 # ---------- demo data ----------
 def demo_series(base, vol, seed):
     rnd = random.Random(seed)
@@ -701,8 +855,8 @@ def main():
         for k in ("bls:cpi", "bls:jobs", "bea:pce", "bea:gdp", "chinadata:pmi"):
             STATUS[k] = {"ok": True}
     else:
-        releases["us_cpi"] = guarded("bls:cpi", cpi_metrics, PREV.get("releases", {}).get("us_cpi"))
-        releases["us_jobs"] = guarded("bls:jobs", jobs_metrics, PREV.get("releases", {}).get("us_jobs"))
+        releases["us_cpi"] = guarded_throttled("bls:cpi", cpi_metrics, PREV.get("releases", {}).get("us_cpi"), 6)
+        releases["us_jobs"] = guarded_throttled("bls:jobs", jobs_metrics, PREV.get("releases", {}).get("us_jobs"), 6)
         releases["us_pce"] = guarded("bea:pce", pce_metrics, PREV.get("releases", {}).get("us_pce"))
         releases["us_gdp"] = guarded("bea:gdp", gdp_metrics, PREV.get("releases", {}).get("us_gdp"))
         releases["china_pmi"] = guarded("chinadata:pmi", lambda: summarize(china_pmi(), "China Manufacturing PMI"),
@@ -721,10 +875,14 @@ def main():
             hist = log_release(hist, rid, label, releases.get(rid), snap)
         HIST.write_text(json.dumps(hist, separators=(",", ":")))
 
+    tilt_result = tilt(market, fredd, nse)
+    events_result = events_list()
+    movers_result = movers(market, fredd, mcx)
     data = {"generated": NOW.isoformat(timespec="seconds"), "demo": DEMO, "market": market, "fred": fredd,
-            "nse": nse, "mcx": mcx, "tilt": tilt(market, fredd, nse), "status": STATUS,
-            "rates": rates, "yields": yields_, "releases": releases, "events": events_list(),
-            "movers": movers(market, fredd, mcx), "recent": hist[-5:][::-1],
+            "nse": nse, "mcx": mcx, "tilt": tilt_result, "status": STATUS,
+            "rates": rates, "yields": yields_, "releases": releases, "events": events_result,
+            "movers": movers_result, "recent": hist[-5:][::-1],
+            "narrative": narrative(market, mcx, tilt_result, rates, releases, events_result, movers_result),
             "notes": {"duty": CFG["duty"], "mcx_note": "Fair value = COMEX x USD/INR x (1+duty) + premium. "
                       "Not the traded MCX price; GST excluded."}}
     OUT.parent.mkdir(exist_ok=True)
