@@ -3,7 +3,7 @@
   "rbi_repo_rate": {
     "value": 5.5,
     "as_of": "2026-10-07",
-    "expected_move": "hike (25bp, to 5.75%)",
+    "expected_move": "6.00",
     "_source": "Set at the Oct 7 2026 MPC meeting (hiked from 5.25%) after Aug CPI ran hot. As of late Nov, Barclays/IDFC First/Choice Institutional converge on a further 25bp hike at the Dec 4 2026 meeting (Oct CPI broke above the 6% ceiling), with a ~6-6.25% terminal rate expected by Feb 2027. Verify/update before Dec 4 - this is a forecast, not a fact."
   },
   "india_cpi": {
