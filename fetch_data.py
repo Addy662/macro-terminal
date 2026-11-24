@@ -10,6 +10,7 @@ Usage:  python fetch_data.py            # live
 import bisect
 import csv
 import datetime as dt
+import gzip
 import io
 import json
 import math
@@ -188,6 +189,22 @@ def ccil_india10y():
     if not 3 < best["value"] < 15:
         raise ValueError(f"implausible yield {best['value']}")
     return best
+
+
+# ---------- MCX contract list (public instrument metadata only - no prices) ----------
+def mcx_contracts():
+    r = requests.get("https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz", headers=UA, timeout=30)
+    r.raise_for_status()
+    now_ms = NOW.timestamp() * 1000
+    out = {"mcx": {}, "stale": False}
+    rows = json.loads(gzip.decompress(r.content))
+    for sym in ("GOLD", "SILVER", "COPPER"):
+        fut = sorted((x for x in rows if x.get("instrument_type") == "FUT" and x.get("underlying_symbol") == sym
+                      and x["expiry"] > now_ms), key=lambda x: x["expiry"])[:4]
+        if not fut:
+            raise ValueError(f"no {sym} futures listed")
+        out["mcx"][sym] = [{"key": x["instrument_key"], "symbol": x["trading_symbol"], "expiry": x["expiry"]} for x in fut]
+    return out
 
 
 # ---------- NY Fed EFFR (current Fed funds rate + target range, no key) ----------
@@ -906,11 +923,12 @@ def main():
             hist = log_release(hist, rid, label, releases.get(rid), snap)
         HIST.write_text(json.dumps(hist, separators=(",", ":")))
 
+    contracts = {} if DEMO else guarded_throttled("upstox:contracts", mcx_contracts, PREV.get("contracts"), 6)
     tilt_result = tilt(market, fredd, nse)
     events_result = events_list()
     movers_result = movers(market, fredd, mcx)
     data = {"generated": NOW.isoformat(timespec="seconds"), "demo": DEMO, "market": market, "fred": fredd,
-            "nse": nse, "mcx": mcx, "tilt": tilt_result, "status": STATUS,
+            "nse": nse, "mcx": mcx, "tilt": tilt_result, "contracts": contracts, "status": STATUS,
             "rates": rates, "yields": yields_, "releases": releases, "events": events_result,
             "movers": movers_result, "recent": hist[-5:][::-1],
             "narrative": narrative(market, mcx, tilt_result, rates, releases, events_result, movers_result),
