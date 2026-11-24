@@ -4,7 +4,7 @@ One page showing what drives MCX gold, silver, copper and Nifty futures. No brok
 
 ## How it works
 - `fetch_data.py` pulls Yahoo Finance (COMEX metals, FX, VIX, indices), FRED (real yield, Fed funds) and NSE (FII/DII, option chain, FII futures positioning). A failed source keeps its last value and is marked stale.
-- MCX prices are a computed fair value: COMEX x USD/INR x (1 + import duty) + premium. Duties live in `config.json` and are assumptions: check them.
+- Rupee metals figures are estimates, not MCX prices: COMEX x USD/INR x (1 + import duty) x (1 + typical local premium). Duties and the fixed premium live in `config.json`; re-measure the premium now and then.
 - `site/index.html` reads `site/data.json`.
 - `.github/workflows/update.yml` runs the job and deploys `site/` to GitHub Pages. GitHub's own schedule is only a backup: on 23 Nov 2026 it started 2 of about 48 due runs.
 - The page shows data age and a red warning when data is over 45 minutes old, Mon-Fri 09:00-23:55 IST.

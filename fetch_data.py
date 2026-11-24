@@ -59,6 +59,8 @@ def summarize(pts, label):
     last, prev = pts[-1][1], pts[-2][1]
     return {"label": label, "last": round(last, 4), "prev": round(prev, 4),
             "chg": round(last - prev, 4), "pct": round((last / prev - 1) * 100, 3) if prev else 0,
+            "prev_date": pts[-2][0],
+            "prev_pct": round((prev / pts[-3][1] - 1) * 100, 3) if len(pts) > 2 and pts[-3][1] else None,
             "asof": pts[-1][0], "series": pts[-45:], "stale": False}
 
 
@@ -100,23 +102,43 @@ def lookup(m, keys, d):
 
 
 # ---------- Yahoo ----------
+def session_shift(sym):
+    """CME/ICE sessions open the evening before in New York, so 18:00 ET onwards belongs to the next
+    trading date. Without this the live evening quote overwrites that day's settlement."""
+    return 6 * 3600 if sym.endswith("=F") or sym == "DX-Y.NYB" else 0
+
+
+def yahoo_points(res, sym, now_ts):
+    """-> (points, active): one point per trading date; active = last point is the current session's."""
+    off = res["meta"].get("gmtoffset", 0) + session_shift(sym)
+    day = lambda t: dt.datetime.fromtimestamp(t + off, dt.timezone.utc).strftime("%Y-%m-%d")
+    dd = {}
+    for t, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]):
+        if c is not None:
+            dd[day(t)] = round(c, 4)
+    pts = sorted(dd.items())
+    if len(pts) < 7:
+        raise ValueError("too few points")
+    return pts, pts[-1][0] == day(now_ts)
+
+
 def yahoo(sym):
+    return yahoo_full(sym)[0]
+
+
+def yahoo_summary(sym, label):
+    pts, active = yahoo_full(sym)
+    return dict(summarize(pts, label), active=active)
+
+
+def yahoo_full(sym):
     last_err = None
     for host in ("query1", "query2"):
         try:
             r = requests.get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{sym}",
                              params={"range": "3mo", "interval": "1d"}, headers=UA, timeout=20)
             r.raise_for_status()
-            res = r.json()["chart"]["result"][0]
-            off = res["meta"].get("gmtoffset", 0)
-            dd = {}
-            for t, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]):
-                if c is not None:
-                    dd[dt.datetime.fromtimestamp(t + off, dt.timezone.utc).strftime("%Y-%m-%d")] = round(c, 4)
-            pts = sorted(dd.items())
-            if len(pts) < 7:
-                raise ValueError("too few points")
-            return pts
+            return yahoo_points(r.json()["chart"]["result"][0], sym, NOW.timestamp())
         except Exception as e:  # noqa
             last_err = e
     raise last_err
@@ -457,15 +479,15 @@ def nse_fii_fut():
     raise ValueError("no participant OI file in last 8 days")
 
 
-# ---------- implied MCX fair value ----------
-def implied(comm, usd, fn, duty, premium):
+# ---------- rupee import-cost estimate (not MCX prices) ----------
+def implied(comm, usd, fn, duty, premium_pct):
     um = {d: c for d, c in usd["series"]}
     keys = sorted(um)
     pts = []
     for d, c in comm["series"]:
         u = lookup(um, keys, d)
         if u:
-            pts.append([d, round(fn(c, u) * (1 + duty) + premium, 2)])
+            pts.append([d, round(fn(c, u) * (1 + duty) * (1 + premium_pct / 100), 2)])
     return pts
 
 
@@ -588,7 +610,7 @@ def movers(*dicts):
     items = []
     for dd in dicts:
         for v in dd.values():
-            if isinstance(v, dict) and "pct" in v and v.get("label"):
+            if isinstance(v, dict) and "pct" in v and v.get("label") and v.get("active", True):
                 items.append({"label": v["label"], "pct": v["pct"], "chg": v["chg"], "stale": v.get("stale", False)})
     items.sort(key=lambda x: -abs(x["pct"]))
     return items[:8]
@@ -651,18 +673,20 @@ def asset_paragraph(key, mcx_entry, market, tilt_entry):
     label = ASSET_LABEL[key]
     lead = extra = ""
     if key in ("gold", "silver", "copper") and mcx_entry:
-        lead = f"{label} {'rose' if mcx_entry['pct'] >= 0 else 'fell'} {abs(mcx_entry['pct']):.2f}% in rupee terms today"
+        when = "this session" if mcx_entry.get("active", True) else f"in the last session ({mcx_entry['asof']})"
+        lead = f"{label} {'rose' if mcx_entry['pct'] >= 0 else 'fell'} {abs(mcx_entry['pct']):.2f}% in rupee terms {when}"
         comex = market.get(key)
         if comex:
             lead += f", largely tracking a {fmt_pct(comex['pct'])} move in the global dollar price"
         lead += "."
     elif key == "nifty" and "nifty" in market:
         m = market["nifty"]
-        lead = f"Nifty {'rose' if m['pct'] >= 0 else 'fell'} {abs(m['pct']):.2f}% to {m['last']:,.0f} today."
+        lead = f"Nifty {'rose' if m['pct'] >= 0 else 'fell'} {abs(m['pct']):.2f}% to {m['last']:,.0f} " + \
+               ("today." if m.get("active", True) else f"in its last session ({m['asof']}).")
     if key == "copper" and "lme_copper" in market:
         lc = market["lme_copper"]
         extra = f" LME's global benchmark confirms it: ${lc['last']:,.0f}/tonne ({fmt_pct(lc['pct'])})."
-    if key == "nifty" and "gift_nifty" in market and "nifty" in market:
+    if key == "nifty" and "gift_nifty" in market and "nifty" in market and market["nifty"].get("active", True):
         gn = market["gift_nifty"]
         same_way = (gn["pct"] >= 0) == (market["nifty"]["pct"] >= 0)
         extra = (f" GIFT Nifty was already {'up' if gn['pct'] >= 0 else 'down'} {abs(gn['pct']):.2f}% before the "
@@ -674,15 +698,17 @@ def asset_paragraph(key, mcx_entry, market, tilt_entry):
 
 
 def overview_paragraphs(market, mcx, tilt_, rates, releases, movers_list):
-    signs = {k: mcx[k]["pct"] >= 0 for k in ("gold", "silver", "copper") if k in mcx}
-    if "nifty" in market:
+    signs = {k: mcx[k]["pct"] >= 0 for k in ("gold", "silver", "copper") if k in mcx and mcx[k].get("active", True)}
+    if "nifty" in market and market["nifty"].get("active", True):
         signs["nifty"] = market["nifty"]["pct"] >= 0
     pos = [k for k, v in signs.items() if v]
     neg = [k for k, v in signs.items() if not v]
     vix_up = market.get("usvix", {}).get("pct", 0) > 0
     metals_neg = [k for k in neg if k != "nifty"]
 
-    if len(metals_neg) >= 2 and "nifty" in pos:
+    if len(signs) < 3:
+        p1 = "Not every market is in session, so there is no full cross-market read right now."
+    elif len(metals_neg) >= 2 and "nifty" in pos:
         fear = "Wall Street's fear gauge jumped" if vix_up else "volatility rose"
         p1 = (f"It's a risk-off day gone two different ways: {', '.join(ASSET_LABEL[k] for k in metals_neg)} "
              f"all fell as {fear}, but Nifty bucked the trend and rose instead.")
@@ -770,7 +796,7 @@ def main():
             market[k] = summarize(demo_series(DEMO_BASE[k], 0.008, hash(k) % 1000), label)
             STATUS[f"yahoo:{k}"] = {"ok": True}
         else:
-            market[k] = guarded(f"yahoo:{k}", lambda sym=sym, label=label: summarize(yahoo(sym), label),
+            market[k] = guarded(f"yahoo:{k}", lambda sym=sym, label=label: yahoo_summary(sym, label),
                                 PREV.get("market", {}).get(k))
     for k, (label, sid) in CFG["fred"].items():
         if DEMO:
@@ -791,6 +817,9 @@ def main():
                                        lambda: summarize(lme_copper(), "LME Copper $/tonne"),
                                        PREV.get("market", {}).get("lme_copper"))
     market = {k: v for k, v in market.items() if v}
+    for v in market.values():  # a kept old value is never the current session's move
+        if v.get("stale"):
+            v["active"] = False
     fredd = {k: v for k, v in fredd.items() if v}
 
     if DEMO:
@@ -817,23 +846,24 @@ def main():
 
     mcx = {}
     if "usdinr" in market:
-        d, pr = CFG["duty"], CFG["premium_inr"]
+        d, pr = CFG["duty"], CFG["premium_pct"]
         specs = {
-            "gold": ("MCX Gold fair value", "₹/10g", lambda c, u: c / OZ_G * 10 * u, d["gold"], pr["gold_per_10g"]),
-            "silver": ("MCX Silver fair value", "₹/kg", lambda c, u: c / OZ_G * 1000 * u, d["silver"], pr["silver_per_kg"]),
-            "copper": ("MCX Copper fair value", "₹/kg", lambda c, u: c / LB_KG * u, d["copper"], pr["copper_per_kg"]),
+            "gold": ("Gold estimate ₹", "₹/10g", lambda c, u: c / OZ_G * 10 * u, d["gold"], pr["gold"]),
+            "silver": ("Silver estimate ₹", "₹/kg", lambda c, u: c / OZ_G * 1000 * u, d["silver"], pr["silver"]),
+            "copper": ("Copper estimate ₹", "₹/kg", lambda c, u: c / LB_KG * u, d["copper"], pr["copper"]),
         }
         for k, (label, unit, fn, duty, prem) in specs.items():
             if k in market:
                 pts = implied(market[k], market["usdinr"], fn, duty, prem)
                 if len(pts) >= 7:
-                    mcx[k] = dict(summarize(pts, label), unit=unit, duty=duty,
+                    mcx[k] = dict(summarize(pts, label), unit=unit, duty=duty, premium_pct=prem, active=bool(market[k].get("active", True)),
                                   stale=bool(market[k].get("stale") or market["usdinr"].get("stale")))
     if "gold" in market and "silver" in market:
         gm = dict(market["gold"]["series"]); sm = dict(market["silver"]["series"])
         pts = [[d, round(gm[d] / sm[d], 3)] for d in sorted(gm) if d in sm and sm[d]]
         if len(pts) >= 7:
-            mcx["gs_ratio"] = summarize(pts, "Gold/Silver ratio")
+            mcx["gs_ratio"] = dict(summarize(pts, "Gold/Silver ratio"),
+                                   active=bool(market["gold"].get("active", True) and market["silver"].get("active", True)))
 
     yields_ = {}
     if DEMO:
@@ -932,7 +962,8 @@ def main():
             "rates": rates, "yields": yields_, "releases": releases, "events": events_result,
             "movers": movers_result, "recent": hist[-5:][::-1],
             "narrative": narrative(market, mcx, tilt_result, rates, releases, events_result, movers_result),
-            "notes": {"duty": CFG["duty"], "mcx_note": "Fair value = COMEX x USD/INR x (1+duty) + premium. "
+            "notes": {"duty": CFG["duty"], "premium_pct": CFG["premium_pct"], "premium_set": CFG["premium_set"],
+                      "mcx_note": "Estimate = COMEX x USD/INR x (1+duty) x (1+typical local premium). "
                       "Not the traded MCX price; GST excluded."}}
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(data, separators=(",", ":")))

@@ -24,7 +24,9 @@
   },
   "duty_note": "Edit these to match the current Indian import duty. Not live values. Gold/silver 15% as of 2026-11-24; copper is an unverified assumption. GST is not included.",
   "duty": { "gold": 0.15, "silver": 0.15, "copper": 0.025 },
-  "premium_inr": { "gold_per_10g": 0, "silver_per_kg": 0, "copper_per_kg": 0 },
+  "premium_note": "Fixed local premium over import cost, in percent. Median gap of 23 MCX daily closes (20 Oct - 23 Nov 2026) vs COMEX x USD/INR x (1+duty). It drifts: re-measure now and then and update premium_set.",
+  "premium_pct": { "gold": 0.6, "silver": 3.3, "copper": 0.5 },
+  "premium_set": "24 Nov 2026",
   "events_note": "Irregular committee/agency dates - refresh from official calendars (federalreserve.gov, rbi.org.in, bls.gov, bea.gov, mospi.gov.in) as new ones are published. India CPI, China PMI and NSE F&O expiry are computed by rule in fetch_data.py instead, since those follow a fixed day-of-month/weekday pattern.",
   "events": {
     "fomc": { "label": "Fed rate decision", "dates": ["2026-12-09"] },

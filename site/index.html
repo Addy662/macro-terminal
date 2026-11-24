@@ -301,7 +301,7 @@ h1.page-title{font-family:var(--font-display);font-size:clamp(26px,4vw,34px);fon
         <div class="notes" id="exp-notes"></div>
       </section>
       <div class="page-footer">
-        <p><strong>Fair value ≠ traded price.</strong> The gold/silver/copper rupee figures above are estimates (global price × exchange rate × import duty + a premium) — not the live MCX exchange price, which also reflects local demand, taxes beyond duty, and speculation.</p>
+        <p><strong>Estimate ≠ traded price.</strong> The gold/silver/copper rupee figures above are estimates (global price × exchange rate × import duty × a fixed typical local premium) — not the live MCX exchange price, which also reflects local demand, taxes beyond duty, and speculation.</p>
         <p><strong>The tilt score is a rule-of-thumb scorecard, not a prediction.</strong> It counts how many tracked drivers currently point bullish vs. bearish for each asset, weighted by how much that driver usually matters. Treat it as a quick context read — not financial advice.</p>
       </div>
     </div></div>
@@ -357,14 +357,16 @@ function spark(s,color){
   const pts=v.map((x,i)=>`${(i/(v.length-1)*200).toFixed(1)},${(38-(x-mn)/r*34).toFixed(1)}`).join(" ");
   return `<svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none"><polyline fill="none" stroke="var(${color})" stroke-width="1.6" vector-effect="non-scaling-stroke" points="${pts}"/></svg>`;
 }
+const off=m=>!!m&&m.active===false; // no active session: show no session move
+const dm=s=>!s?"previous":new Date(s+"T12:00:00Z").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"});
 function chip(m){
   if(!m)return"";
-  return `<div class="chip ${m.stale?"stale":""}"><b>${m.label}</b><span>${nf(m.last,m.last>1000?0:2)}</span><i class="${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</i></div>`;
+  return `<div class="chip ${m.stale?"stale":""}"><b>${m.label}</b><span>${nf(m.last,m.last>1000?0:2)}</span>${off(m)?`<i class="mu">${m.stale?"–":"closed"}</i>`:`<i class="${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</i>`}</div>`;
 }
 function row(label,m,d=2,abs=false){
   if(!m)return`<div class="row"><span class="mu">${label}</span><span class="v mu">n/a</span></div>`;
   const ch=abs?`${sg(m.chg)}${nf(m.chg,2)}`:`${sg(m.pct)}${nf(m.pct)}%`;
-  return `<div class="row ${m.stale?"stale":""}"><span>${label}</span><span class="v">${nf(m.last,d)} <span class="${cls(m.chg)}">${ch}</span></span></div>`;
+  return `<div class="row ${m.stale?"stale":""}"><span>${label}</span><span class="v">${nf(m.last,d)} ${off(m)?`<span class="mu">${m.stale?"–":"closed"}</span>`:`<span class="${cls(m.chg)}">${ch}</span>`}</span></div>`;
 }
 function tiltTag(t){return t?`<span class="tag ${t.label}">${t.label} ${sg(t.score)}${t.score}</span>`:""}
 function drivers(t){
@@ -373,11 +375,14 @@ function drivers(t){
 }
 function hero(m,unit){
   if(!m)return`<div class="big mu">n/a</div>`;
-  return `<div class="big ${m.stale?"stale":""}">${nf(m.last,0)}<small>${unit} · <span class="${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</span></small></div>${spark(m.series,m.pct>=0?"--up":"--dn")}`;
+  const o=off(m),pp=o?m.pct:m.prev_pct,pd=o?m.asof:m.prev_date;
+  return `<div class="big ${m.stale?"stale":""}">${nf(m.last,0)}<small>${unit} · ${o?"no active session":`<span class="${cls(m.pct)}">${sg(m.pct)}${nf(m.pct)}%</span> vs ${dm(m.prev_date)} close`}</small></div>${spark(m.series,m.pct>=0?"--up":"--dn")}`+
+    (pp==null?"":`<div class="row mu"><span>${o?"Last session":"Previous session"}, ${dm(pd)}</span><span class="v ${cls(pp)}">${sg(pp)}${nf(pp)}%</span></div>`);
 }
 function metal(title,key,unit,d,rows){
   const m=d.mcx[key];
-  return `<div class="card"><h2>${title} ${tiltTag(d.tilt[key])}</h2>${hero(m,unit)}${rows}${drivers(d.tilt[key])}</div>`;
+  const n=d.notes,pr=n.premium_pct?`<p class="mu sm" style="margin:0 0 6px">Estimate, not an MCX price. Adjusted for typical local premium (${n.premium_pct[key]}%), set ${n.premium_set}.</p>`:"";
+  return `<div class="card"><h2>${title} ${tiltTag(d.tilt[key])}</h2>${hero(m,unit)}${pr}${rows}${drivers(d.tilt[key])}</div>`;
 }
 function fmtDays(n){return n===0?"today":n===1?"tomorrow":n>0?`in ${n}d`:`${-n}d ago`}
 function eventsCard(d){
@@ -449,13 +454,13 @@ function renderDashboard(d){
     (bad?`<div class="banner">${bad} source(s) failed on the last run; those values are the previous ones, marked stale.</div>`:"");
   $("strip").innerHTML=["nifty","banknifty","indiavix","es","gold","silver","copper","brent","dxy","usdinr","us10y"].map(k=>chip(M[k])).join("");
 
-  const gold=metal("MCX Gold – fair value","gold","₹/10g",d,
+  const gold=metal("Gold – import cost estimate","gold","₹/10g",d,
     row("COMEX gold $/oz",M.gold,2)+row("USD/INR",M.usdinr,3)+row("DXY",M.dxy,2)+
     row("US 10Y real yield %",F.real10y,2,true)+row("US 10Y %",M.us10y,2,true)+row("US VIX",M.usvix,2));
-  const silver=metal("MCX Silver – fair value","silver","₹/kg",d,
+  const silver=metal("Silver – import cost estimate","silver","₹/kg",d,
     row("COMEX silver $/oz",M.silver,2)+row("Gold/Silver ratio",d.mcx.gs_ratio,1)+row("COMEX copper $/lb",M.copper,3)+
     row("USD/INR",M.usdinr,3)+row("DXY",M.dxy,2));
-  const copper=metal("MCX Copper – fair value","copper","₹/kg",d,
+  const copper=metal("Copper – import cost estimate","copper","₹/kg",d,
     row("COMEX copper $/lb",M.copper,3)+row("LME copper $/t",M.lme_copper,0)+row("USD/CNY",M.usdcny,4)+
     row("Hang Seng",M.hangseng,0)+row("DXY",M.dxy,2)+row("Brent $/bbl",M.brent,2));
 
@@ -487,7 +492,7 @@ function renderDashboard(d){
 
   $("grid").innerHTML=gold+silver+copper+nifty+tl+eventsCard(d)+ratesCard(d)+yieldsCard(d)+releasesCard(d)+recentCard(d);
   $("st").innerHTML=Object.entries(d.status).map(([k,v])=>`<span class="${v.ok?"":"bad"}" title="${v.ok?"":v.error}">${k}${v.ok?"":" ✕"}</span>`).join("");
-  $("notes").textContent=d.notes.mcx_note+" Duties used: gold "+d.notes.duty.gold*100+"%, silver "+d.notes.duty.silver*100+"%, copper "+d.notes.duty.copper*100+"% (edit config.json).";
+  $("notes").textContent=d.notes.mcx_note+" Duties used: gold "+d.notes.duty.gold*100+"%, silver "+d.notes.duty.silver*100+"%, copper "+d.notes.duty.copper*100+"%. Local premium: gold "+d.notes.premium_pct.gold+"%, silver "+d.notes.premium_pct.silver+"%, copper "+d.notes.premium_pct.copper+"%, set "+d.notes.premium_set+".";
 }
 
 /* ================= EXPLAINER (live, template-driven) ================= */
@@ -515,7 +520,7 @@ function assetCard(key,d){
   const heroVal=key==="nifty"?nf(m.last,0):"₹"+nf(m.last,0);
   return `<div class="asset ${key}">
     <div class="asset-head"><h3>${meta.title}</h3><span class="unit">${meta.unit}</span></div>
-    <div class="hero-row"><span class="hero-num">${heroVal}</span>${chgSpan(m.pct)}</div>
+    <div class="hero-row"><span class="hero-num">${heroVal}</span>${off(m)?`<span class="chg">closed</span>`:chgSpan(m.pct)}</div>
     ${sparkline(m.series,meta.color)}
     <div class="verdict ${t.label}">${t.label} · tilt ${sg(t.score)}${t.score}</div>
     <p>${nar?nar.paragraph:""}</p>
@@ -525,18 +530,18 @@ function assetCard(key,d){
 const GLOSSARY=[
   {title:"US real yield",def:"What US government bonds pay <em>after</em> subtracting expected inflation. Gold earns no interest, so when this falls, gold looks relatively more attractive to hold — and vice versa. The single biggest lever on gold in the model.",
    read:d=>d.fred.real10y?`${nf(d.fred.real10y.last,2)}% ${chgSpan(d.fred.real10y.chg,true)}`:null},
-  {title:"USD/INR (the rupee)",def:"Rupees per dollar — a falling number means the rupee is <em>strengthening</em>. Since MCX fair value = global dollar price × this rate, a weaker rupee alone makes gold/silver/copper costlier in India even if nothing else moves.",
-   read:d=>d.market.usdinr?`${nf(d.market.usdinr.last,2)} ${chgSpan(d.market.usdinr.pct)}`:null},
+  {title:"USD/INR (the rupee)",def:"Rupees per dollar — a falling number means the rupee is <em>strengthening</em>. Since the rupee estimate = global dollar price × this rate, a weaker rupee alone makes gold/silver/copper costlier in India even if nothing else moves.",
+   read:d=>d.market.usdinr?`${nf(d.market.usdinr.last,2)} ${off(d.market.usdinr)?"(closed)":chgSpan(d.market.usdinr.pct)}`:null},
   {title:"US VIX (\"fear gauge\")",def:"Wall Street's expected 30-day volatility, priced from options. Above ~30 is genuinely elevated. Rising fear usually helps gold (safe haven) but can hit everything at once if it's a cash scramble.",
-   read:d=>d.market.usvix?`${nf(d.market.usvix.last,2)} ${chgSpan(d.market.usvix.pct)}`:null},
+   read:d=>d.market.usvix?`${nf(d.market.usvix.last,2)} ${off(d.market.usvix)?"(closed)":chgSpan(d.market.usvix.pct)}`:null},
   {title:"India VIX",def:"Same idea as US VIX, for Nifty — expected 30-day volatility in the Indian market.",
-   read:d=>d.market.indiavix?`${nf(d.market.indiavix.last,2)} ${chgSpan(d.market.indiavix.pct)}`:null},
+   read:d=>d.market.indiavix?`${nf(d.market.indiavix.last,2)} ${off(d.market.indiavix)?"(closed)":chgSpan(d.market.indiavix.pct)}`:null},
   {title:"GIFT Nifty",def:"Nifty futures traded out of GIFT City, Gujarat — nearly 21 hours a day, including before and after India's own market hours. Traders use it as an early read on which way Nifty is likely to open.",
    read:d=>d.market.gift_nifty?`${nf(d.market.gift_nifty.last,0)} ${chgSpan(d.market.gift_nifty.pct)}`:null},
   {title:"FII / DII flows",def:"Foreign (FII) vs. domestic Indian (DII) institutions' net buying or selling of Indian stocks on a given day.",
    read:d=>{const fd=d.nse&&d.nse.fii_dii;if(!fd)return null;return `FII ${sg(fd.fii.net)}${nf(fd.fii.net,0)}cr <span class="mu" style="color:var(--ink-faint);font-size:12px">· DII ${sg(fd.dii.net)}${nf(fd.dii.net,0)}cr</span>`;}},
   {title:"Brent crude oil",def:"The global oil benchmark. India imports most of its oil, so cheaper Brent eases the trade deficit and the pressure on the rupee.",
-   read:d=>d.market.brent?`$${nf(d.market.brent.last,2)} ${chgSpan(d.market.brent.pct)}`:null},
+   read:d=>d.market.brent?`$${nf(d.market.brent.last,2)} ${off(d.market.brent)?"(closed)":chgSpan(d.market.brent.pct)}`:null},
   {title:"LME copper",def:"The London Metal Exchange's cash-settlement price — the actual global benchmark that physical copper buyers and sellers reference, distinct from COMEX futures.",
    read:d=>d.market.lme_copper?`$${nf(d.market.lme_copper.last,0)} ${chgSpan(d.market.lme_copper.pct)}`:null},
   {title:"US bond yields &amp; the curve",def:"What the US government pays to borrow for that many years. The 10Y−2Y gap is a classic recession watch-signal: negative has historically preceded US recessions.",
@@ -609,7 +614,7 @@ function buildSlides(d){
   ["gold","silver","copper","nifty"].forEach(k=>{
     const m=k==="nifty"?d.market.nifty:d.mcx[k],a=nar.assets[k];
     if(!m||!a)return;
-    S.push({bg:"bold",c:assetColor[k],eyebrow:ASSET_META[k].title,bigStat:`${m.pct>=0?"▲":"▼"}${nf(Math.abs(m.pct),1)}%`,text:a.paragraph});
+    S.push({bg:"bold",c:assetColor[k],eyebrow:ASSET_META[k].title,bigStat:off(m)?"Closed":`${m.pct>=0?"▲":"▼"}${nf(Math.abs(m.pct),1)}%`,text:a.paragraph});
   });
   const fed=(d.rates||{}).fed||{},rbi=(d.rates||{}).rbi||{};
   S.push({bg:"neutral",tag:"Rates",headline:"Where rates are headed",
