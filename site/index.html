@@ -72,6 +72,9 @@ button{font:inherit;cursor:pointer}
 .navspacer{flex:1}
 .navfoot{padding:10px 12px;font-size:11px;color:var(--ink-faint);font-family:var(--font-mono)}
 .main{flex:1;min-width:0;max-width:100%}
+.agebar{display:none;margin:12px 20px 0;padding:10px 14px;border:1px solid var(--critical);border-radius:8px;
+  background:var(--critical-bg);color:var(--critical);font-size:13.5px;font-weight:600}
+.agebar.on{display:block}
 .view{display:none}
 .view.active{display:block}
 
@@ -227,7 +230,7 @@ h1.page-title{font-family:var(--font-display);font-size:clamp(26px,4vw,34px);fon
 
 <div class="app">
   <nav class="sidebar">
-    <div class="brand">Macro Terminal<span class="sub">Live</span></div>
+    <div class="brand">Macro Terminal<span class="sub" id="agetag">loading…</span></div>
     <button class="navbtn active" data-view="dashboard">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
       Dashboard
@@ -245,6 +248,7 @@ h1.page-title{font-family:var(--font-display);font-size:clamp(26px,4vw,34px);fon
   </nav>
 
   <main class="main">
+    <div class="agebar" id="agebar" role="alert"></div>
 
     <!-- ============ DASHBOARD VIEW (unchanged technical dashboard) ============ -->
     <div class="view active" id="view-dashboard">
@@ -263,7 +267,7 @@ h1.page-title{font-family:var(--font-display);font-size:clamp(26px,4vw,34px);fon
     <div class="view" id="view-explainer"><div class="w900 exp">
       <div class="eyebrow">Macro Terminal — plain English edition</div>
       <h1 class="page-title">What today's numbers actually mean</h1>
-      <p class="sub">A walkthrough of the same data the Dashboard tracks for MCX gold, silver, copper and Nifty — translated out of jargon, with the "so what" attached to each figure. Regenerated automatically every 30 minutes.</p>
+      <p class="sub">A walkthrough of the same data the Dashboard tracks for MCX gold, silver, copper and Nifty — translated out of jargon, with the "so what" attached to each figure. Regenerated on every data refresh.</p>
       <div class="asof" id="exp-asof"></div>
       <div class="conditions" id="exp-conditions"></div>
       <section>
@@ -401,7 +405,7 @@ function yieldsCard(d){
     row("US 2Y %",y.us2y,2,true)+row("US 10Y %",y.us10y,2,true)+row("US 30Y %",y.us30y,2,true)+
     row("US 10Y-2Y spread",y.curve_10_2,2,true)+row("US 10Y real yield %",f.real10y,2,true);
   const in10=y.india10y;
-  h+=in10&&in10.value!=null?`<div class="row"><span>India 10Y G-sec (${in10.as_of||""})</span><span class="v">${nf(in10.value,2)}% ${in10.spread_us10y!=null?`<span class="mu">${sg(in10.spread_us10y)}${nf(in10.spread_us10y,2)} vs US</span>`:""}</span></div>`:
+  h+=in10&&in10.value!=null?`<div class="row${in10.stale?" stale":""}"><span>India 10Y G-sec (${in10.source||"manual"} close, ${in10.as_of||"undated"})</span><span class="v">${nf(in10.value,2)}% ${in10.spread_us10y!=null?`<span class="mu">${sg(in10.spread_us10y)}${nf(in10.spread_us10y,2)} vs US</span>`:""}</span></div>`:
     `<div class="row"><span class="mu">India 10Y G-sec</span><span class="v mu">add in manual.json</span></div>`;
   return h+`</div>`;
 }
@@ -440,7 +444,6 @@ function recentCard(d){
 }
 function renderDashboard(d){
   const M=d.market,F=d.fred,N=d.nse||{};
-  $("gen").textContent="Updated "+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
   const bad=Object.values(d.status).filter(s=>!s.ok).length;
   $("banner").innerHTML=(d.demo?`<div class="banner">DEMO DATA – synthetic numbers, not real prices.</div>`:"")+
     (bad?`<div class="banner">${bad} source(s) failed on the last run; those values are the previous ones, marked stale.</div>`:"");
@@ -568,7 +571,6 @@ const EVENT_WHY={
 };
 function renderExplainer(d){
   const nar=d.narrative||{overview:[],assets:{},worth_doing:[]};
-  $("exp-asof").textContent="Live · updated "+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"})+(d.demo?" · DEMO DATA":"");
   $("exp-conditions").innerHTML=`<p class="k">Today in one breath</p>`+nar.overview.map(p=>`<p>${p}</p>`).join("");
   $("exp-assets").innerHTML=["gold","silver","copper","nifty"].map(k=>assetCard(k,d)).join("");
   $("exp-guide").innerHTML=GLOSSARY.map(g=>gcard(g.title,g.read(d),g.def)).join("");
@@ -700,18 +702,45 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ================= load ================= */
+/* Data age: measured from the data's own timestamp, so it also catches refresh jobs that never ran. */
+const STALE_MIN=45;
+let lastGen=null,isDemo=false,loadErr="";
+function marketHours(){ // Mon-Fri 09:00-23:55 IST (NSE + MCX sessions)
+  const t=new Date(Date.now()+19800000),m=t.getUTCHours()*60+t.getUTCMinutes(),w=t.getUTCDay();
+  return w>=1&&w<=5&&m>=540&&m<=1435;
+}
+function ageText(m){return m<1?"just now":m<60?`${m} min ago`:m<2880?`${Math.floor(m/60)}h ${m%60}m ago`:`${Math.floor(m/1440)} days ago`}
+function tickAge(){
+  if(!lastGen)return;
+  const m=Math.max(0,Math.floor((Date.now()-lastGen)/60000)),age=ageText(m);
+  const at=lastGen.toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Kolkata"})+" IST";
+  const old=marketHours()&&m>STALE_MIN;
+  $("gen").textContent=`Updated ${at} · ${age}`;
+  $("exp-asof").textContent=`Updated ${at} · ${age}`+(isDemo?" · DEMO DATA":"");
+  $("navfoot").innerHTML=`as of<br>${at}`;
+  $("agetag").textContent="Updated "+age;
+  const msg=[];
+  if(old)msg.push(`Data is ${age.replace(" ago","")} old. The refresh job is running late, so do not treat these prices as current.`);
+  if(loadErr)msg.push(`Could not check for new data (${loadErr}).`);
+  $("agebar").textContent=msg.join(" ");
+  $("agebar").classList.toggle("on",msg.length>0);
+}
 async function load(){
   try{
     const r=await fetch("data.json?t="+Date.now());
     if(!r.ok)throw new Error(r.status);
     const d=await r.json();
+    lastGen=new Date(d.generated);isDemo=!!d.demo;loadErr="";tickAge();
     renderDashboard(d);
     renderExplainer(d);
     mountStories(d);
-    $("navfoot").innerHTML="as of<br>"+new Date(d.generated).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
     if($("view-stories").classList.contains('active'))startTimer();
-  }catch(e){$("gen").textContent="No data yet ("+e.message+"). Run the data job first.";}
+  }catch(e){
+    loadErr=e.message;
+    if(lastGen)tickAge();else $("gen").textContent="No data yet ("+e.message+"). Run the data job first.";
+  }
 }
-$("rf").onclick=load;load();setInterval(load,300000);
+$("rf").onclick=load;load();setInterval(load,300000);setInterval(tickAge,30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)load();});
 </script>
 </body></html>

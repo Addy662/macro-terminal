@@ -2,8 +2,10 @@ name: update-and-deploy
 
 on:
   schedule:
-    - cron: "*/30 * * * 1-5"
-    - cron: "0 */6 * * 0,6"
+    # Backup only: GitHub delays/drops scheduled runs. The primary trigger is an external
+    # scheduler calling workflow_dispatch (see README). Off-peak minutes on purpose.
+    - cron: "7,37 * * * 1-5"
+    - cron: "23 */6 * * 0,6"
   workflow_dispatch:
   push:
     branches: [main]
@@ -20,8 +22,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 12  # a hung run would otherwise block the queue for hours
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main  # a queued run must start from the latest data, not its trigger commit
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -34,8 +39,20 @@ jobs:
         run: |
           git config user.name "macro-bot"
           git config user.email "macro-bot@users.noreply.github.com"
-          git add site/data.json site/history.json
-          git diff --cached --quiet || (git commit -m "data $(date -u +%FT%TZ)" && git pull --rebase && git push)
+          mkdir -p "$RUNNER_TEMP/fresh"
+          cp site/data.json site/history.json "$RUNNER_TEMP/fresh/"
+          # Re-apply this run's files on top of the latest main instead of rebasing (no conflicts).
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            cp "$RUNNER_TEMP/fresh/data.json" "$RUNNER_TEMP/fresh/history.json" site/
+            git add site/data.json site/history.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -q -m "data $(date -u +%FT%TZ)"
+            if git push -q origin HEAD:main; then exit 0; fi
+            sleep $((i * 3))
+          done
+          echo "::error::could not push data after 5 attempts"
+          exit 1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -44,6 +61,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

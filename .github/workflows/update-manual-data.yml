@@ -99,7 +99,7 @@ jobs:
 
             const lines = ["Updated `manual.json`:", "", "```", ...changed, "```"];
             if (warnings.length) lines.push("", "Warnings:", ...warnings.map(w => "- " + w));
-            lines.push("", "This will show up on the dashboard within 30 minutes (the regular data-refresh run also picks up manual.json each time).");
+            lines.push("", "This will show up on the dashboard on the next data-refresh run.");
 
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,

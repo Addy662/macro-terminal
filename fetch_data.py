@@ -168,6 +168,28 @@ def fred_real10y():
         return treasury_real10y()
 
 
+# ---------- India 10Y G-sec (CCIL end-of-day benchmark table, no key) ----------
+def ccil_india10y():
+    r = requests.get("https://www.ccilindia.com/tenorwise-indicative-yields", headers=UA, timeout=25)
+    r.raise_for_status()
+    best = None
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", r.text, re.S):
+        c = [re.sub(r"<[^>]+>", "", x).strip() for x in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+        if len(c) != 4 or not re.match(r"\d{4}-\d\d-\d\d", c[0]):
+            continue
+        m = re.fullmatch(r"[\d.]+% GS (\d{4})", c[2])  # central govt only - state loans are "SGS"
+        if not m or "10Y" not in c[1].split("-"):
+            continue
+        cand = {"value": float(c[3]), "as_of": c[0][:10], "security": c[2], "source": "CCIL", "stale": False}
+        if best is None or cand["as_of"] > best["as_of"]:
+            best = cand
+    if not best:
+        raise ValueError("no 10Y GS row in CCIL table")
+    if not 3 < best["value"] < 15:
+        raise ValueError(f"implausible yield {best['value']}")
+    return best
+
+
 # ---------- NY Fed EFFR (current Fed funds rate + target range, no key) ----------
 def effr():
     r = requests.get("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json",
@@ -688,11 +710,9 @@ def worth_doing_notes(events, consensus, manual):
     if rbi_event and rbi_event["days"] <= 10:
         notes.append(f"RBI decision is in {rbi_event['days']} days - re-check manual.json's \"expected_move\" "
                      "is still accurate.")
-    g = manual.get("india_gsec10y") or {}
-    if g.get("as_of"):
-        age = (NOW.date() - dt.date.fromisoformat(g["as_of"])).days
-        if age > 10:
-            notes.append(f"India 10Y G-sec figure is {age} days old - consider refreshing it in manual.json.")
+    if not STATUS.get("ccil:india10y", {}).get("ok", True):
+        notes.append("India 10Y G-sec auto-fetch (CCIL) failed - showing the last known value; "
+                     "manual.json can override it with a newer as_of date.")
     return notes or ["Nothing urgent - manual fields and consensus estimates all look current."]
 
 
@@ -817,8 +837,19 @@ def main():
         pts = [[d, round(b[d] - a[d], 3)] for d in sorted(b) if d in a]
         if len(pts) >= 7:
             yields_["curve_10_2"] = summarize(pts, "US 10Y-2Y spread")
-    if MANUAL.get("india_gsec10y", {}).get("value") is not None:
-        in10 = dict(MANUAL["india_gsec10y"])
+    # CCIL is primary; if it fails, use whichever is newer of the last CCIL value and manual.json
+    backups = [x for x in (PREV.get("yields", {}).get("india10y"), MANUAL.get("india_gsec10y"))
+               if isinstance(x, dict) and x.get("value") is not None]
+    backup = max(backups, key=lambda x: x.get("as_of") or "", default=None)
+    if DEMO:
+        in10 = MANUAL.get("india_gsec10y")
+    else:
+        in10 = guarded_throttled("ccil:india10y", ccil_india10y, backup, 1)
+    if in10 and in10.get("value") is not None:
+        in10 = dict(in10)
+        # flag an old print even if the fetch itself worked (allows long weekends/holidays)
+        if in10.get("as_of") and (NOW.date() - dt.date.fromisoformat(in10["as_of"])).days > 5:
+            in10["stale"] = True
         if "us10y" in yields_:
             in10["spread_us10y"] = round(in10["value"] - yields_["us10y"]["last"], 3)
         yields_["india10y"] = in10
